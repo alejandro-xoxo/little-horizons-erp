@@ -32,16 +32,25 @@ public class GuardianDaoImpl extends BaseJdbcDao implements GuardianDao {
 
     @Override
     public Optional<Guardian> findById(int id) {
+        if (id <= 0) {
+            return Optional.empty();
+        }
         return queryOne("SELECT * FROM acudientes WHERE id_acudiente = ?", GuardianDaoImpl::map, id);
     }
 
     @Override
     public Optional<Guardian> findByDocument(String documentNumber) {
-        return queryOne("SELECT * FROM acudientes WHERE numero_documento = ?", GuardianDaoImpl::map, documentNumber);
+        if (documentNumber == null || documentNumber.isBlank()) {
+            return Optional.empty();
+        }
+        return queryOne("SELECT * FROM acudientes WHERE numero_documento = ?", GuardianDaoImpl::map, documentNumber.trim());
     }
 
     @Override
     public List<GuardianLink> findByStudent(int studentId) {
+        if (studentId <= 0) {
+            return List.of();
+        }
         String sql = "SELECT a.*, ea.es_principal, ea.es_contacto_emergencia " +
                 "FROM acudientes a " +
                 "JOIN estudiante_acudiente ea ON a.id_acudiente = ea.id_acudiente " +
@@ -61,11 +70,17 @@ public class GuardianDaoImpl extends BaseJdbcDao implements GuardianDao {
 
     @Override
     public void unlink(int studentId, int guardianId) {
+        if (studentId <= 0 || guardianId <= 0) {
+            return;
+        }
         update("DELETE FROM estudiante_acudiente WHERE id_estudiante = ? AND id_acudiente = ?", studentId, guardianId);
     }
 
     @Override
     public void setPrimary(int studentId, int guardianId) {
+        if (studentId <= 0 || guardianId <= 0) {
+            return;
+        }
         inTransaction(c -> {
             update(c, "UPDATE estudiante_acudiente SET es_principal = FALSE WHERE id_estudiante = ?", studentId);
             update(c, "UPDATE estudiante_acudiente SET es_principal = TRUE WHERE id_estudiante = ? AND id_acudiente = ?", studentId, guardianId);
@@ -75,6 +90,9 @@ public class GuardianDaoImpl extends BaseJdbcDao implements GuardianDao {
 
     @Override
     public int countStudents(int guardianId) {
+        if (guardianId <= 0) {
+            return 0;
+        }
         List<Integer> list = query(
                 "SELECT COUNT(*) AS c FROM estudiante_acudiente WHERE id_acudiente = ?",
                 rs -> rs.getInt("c"),

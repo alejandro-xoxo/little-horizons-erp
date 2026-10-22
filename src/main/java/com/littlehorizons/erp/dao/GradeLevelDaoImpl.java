@@ -19,6 +19,9 @@ public class GradeLevelDaoImpl extends BaseJdbcDao implements GradeLevelDao {
 
     @Override
     public Optional<GradeLevel> findById(int id) {
+        if (id <= 0) {
+            return Optional.empty();
+        }
         return queryOne(
                 "SELECT id_grado, nombre_grado, nivel_numerico FROM grados WHERE id_grado = ?",
                 this::map,

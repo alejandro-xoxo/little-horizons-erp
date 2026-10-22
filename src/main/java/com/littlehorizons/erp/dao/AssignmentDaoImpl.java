@@ -109,12 +109,36 @@ public class AssignmentDaoImpl extends BaseJdbcDao implements AssignmentDao {
     }
 
     private ClassSchedule mapSchedule(ResultSet rs) throws SQLException {
+        LocalTime start = null;
+        try {
+            start = rs.getObject("hora_inicio", LocalTime.class);
+        } catch (Exception ignored) {
+        }
+        if (start == null) {
+            java.sql.Time t = rs.getTime("hora_inicio");
+            if (t != null) {
+                start = t.toLocalTime();
+            }
+        }
+
+        LocalTime end = null;
+        try {
+            end = rs.getObject("hora_fin", LocalTime.class);
+        } catch (Exception ignored) {
+        }
+        if (end == null) {
+            java.sql.Time t = rs.getTime("hora_fin");
+            if (t != null) {
+                end = t.toLocalTime();
+            }
+        }
+
         return new ClassSchedule(
                 rs.getInt("id_horario"),
                 rs.getInt("id_asignacion"),
                 rs.getString("dia_semana"),
-                rs.getObject("hora_inicio", LocalTime.class),
-                rs.getObject("hora_fin", LocalTime.class)
+                start,
+                end
         );
     }
 }

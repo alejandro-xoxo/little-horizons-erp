@@ -99,6 +99,12 @@ public class TeacherController extends BaseController implements MenuModule {
     private void assignSubject() {
         view.banner("Asignar Materia a Profesor");
         int teacherId = view.readTeacherId();
+        Teacher teacher = service.findTeacherById(teacherId)
+                .orElseThrow(() -> new BusinessException("Profesor no encontrado."));
+        if (!"Activo".equals(teacher.status())) {
+            throw new BusinessException("Solo los profesores con estado Activo pueden recibir asignaciones.");
+        }
+
         int subjectId = view.readSubjectId();
         String section = view.readSection();
 
@@ -109,6 +115,9 @@ public class TeacherController extends BaseController implements MenuModule {
     private void registerSchedule() {
         view.banner("Registrar Horario de Clase");
         int assignmentId = view.readAssignmentId();
+        service.findAssignmentById(assignmentId)
+                .orElseThrow(() -> new BusinessException("Asignación no encontrada."));
+
         String day = view.readDayOfWeek();
         LocalTime startTime = view.readTime("Hora de inicio (HH:mm): ");
         LocalTime endTime = view.readTime("Hora de fin (HH:mm): ");
@@ -131,8 +140,11 @@ public class TeacherController extends BaseController implements MenuModule {
     private void changeStatus() {
         view.banner("Cambiar Estado de Profesor");
         int teacherId = view.readTeacherId();
-        String newStatus = view.readStatus();
+        Teacher teacher = service.findTeacherById(teacherId)
+                .orElseThrow(() -> new BusinessException("Profesor no encontrado."));
+        view.showInfo("Profesor: " + teacher.fullName() + " | Estado actual: " + teacher.status());
 
+        String newStatus = view.readStatus();
         service.changeTeacherStatus(teacherId, newStatus);
         view.showSuccess("Estado del profesor actualizado a " + newStatus + ".");
     }

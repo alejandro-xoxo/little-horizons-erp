@@ -24,12 +24,18 @@ public class SubjectDaoImpl extends BaseJdbcDao implements SubjectDao {
 
     @Override
     public Optional<Subject> findById(int id) {
+        if (id <= 0) {
+            return Optional.empty();
+        }
         String sql = "SELECT * FROM materias WHERE id_materia = ?";
         return queryOne(sql, this::map, id);
     }
 
     @Override
     public List<Subject> findByGrade(int gradeId) {
+        if (gradeId <= 0) {
+            return List.of();
+        }
         String sql = "SELECT * FROM materias WHERE id_grado = ? ORDER BY nombre_materia";
         return query(sql, this::map, gradeId);
     }

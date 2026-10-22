@@ -86,17 +86,30 @@ public class AcademicService {
     }
 
     public Optional<BigDecimal> getSubjectAverage(int studentId, int subjectId, int year) {
+        studentDao.findById(studentId).orElseThrow(() -> new BusinessException("Estudiante no encontrado."));
+        subjectDao.findById(subjectId).orElseThrow(() -> new BusinessException("Materia no encontrada."));
+        if (year <= 0) {
+            throw new BusinessException("El año académico debe ser mayor que cero.");
+        }
         return academicRecordDao.findAverageByStudentAndSubject(studentId, subjectId, year);
     }
 
     public Optional<BigDecimal> getStudentPeriodAverage(int studentId, int year, String period) {
-        if (!REGULAR_PERIODS.contains(period)) {
+        studentDao.findById(studentId).orElseThrow(() -> new BusinessException("Estudiante no encontrado."));
+        if (year <= 0) {
+            throw new BusinessException("El año académico debe ser mayor que cero.");
+        }
+        if (period == null || !REGULAR_PERIODS.contains(period)) {
             throw new BusinessException("Los promedios por período solo aplican para períodos I a IV.");
         }
         return academicRecordDao.findAverageByStudentAndPeriod(studentId, year, period);
     }
 
     public Optional<BigDecimal> getCourseAverage(int subjectId, int year, String period) {
+        subjectDao.findById(subjectId).orElseThrow(() -> new BusinessException("Materia no encontrada."));
+        if (year <= 0) {
+            throw new BusinessException("El año académico debe ser mayor que cero.");
+        }
         if (period != null && !period.isBlank() && !REGULAR_PERIODS.contains(period)) {
             throw new BusinessException("Los promedios de curso solo aplican para períodos I a IV o año completo.");
         }
@@ -104,11 +117,18 @@ public class AcademicService {
     }
 
     public List<AverageLine> getSubjectAveragesByStudent(int studentId, int year) {
+        studentDao.findById(studentId).orElseThrow(() -> new BusinessException("Estudiante no encontrado."));
+        if (year <= 0) {
+            throw new BusinessException("El año académico debe ser mayor que cero.");
+        }
         return academicRecordDao.findSubjectAveragesByStudent(studentId, year);
     }
 
     public List<SubjectGradeSummary> getSubjectSummariesByStudent(int studentId, int year) {
         studentDao.findById(studentId).orElseThrow(() -> new BusinessException("Estudiante no encontrado."));
+        if (year <= 0) {
+            throw new BusinessException("El año académico debe ser mayor que cero.");
+        }
         List<AcademicRecord> records = academicRecordDao.findByStudentAndYear(studentId, year);
         Set<Integer> subjectIds = records.stream()
                 .map(AcademicRecord::subjectId)
@@ -137,40 +157,50 @@ public class AcademicService {
         return subjectDao.findById(subjectId);
     }
 
-    private void validateGradeRecord(AcademicRecord record) {
-        if (record == null) {
-            throw new BusinessException("El registro de nota es obligatorio.");
+    public void validateGradePrerequisites(int studentId, int subjectId, int year, String period, int teacherId) {
+        if (year <= 0) {
+            throw new BusinessException("El año académico debe ser mayor que cero.");
         }
-        if (record.grade() == null || !InputValidator.isValidGrade(record.grade().doubleValue())) {
-            throw new BusinessException("La nota debe estar entre 0.0 y 5.0 con un solo decimal.");
-        }
-        if (record.period() == null || !VALID_PERIODS.contains(record.period())) {
+        if (period == null || !VALID_PERIODS.contains(period)) {
             throw new BusinessException("El período académico debe ser I, II, III, IV o Final.");
         }
-        if (record.recordDate() != null && record.recordDate().isAfter(LocalDate.now())) {
-            throw new BusinessException("La fecha de registro de la nota no puede ser futura.");
-        }
-        Student student = studentDao.findById(record.studentId())
+        Student student = studentDao.findById(studentId)
                 .orElseThrow(() -> new BusinessException("Estudiante no encontrado."));
         if (!"Activo".equalsIgnoreCase(student.status())) {
             throw new BusinessException("El estudiante no se encuentra en estado Activo.");
         }
-        subjectDao.findById(record.subjectId())
+        subjectDao.findById(subjectId)
                 .orElseThrow(() -> new BusinessException("Materia no encontrada."));
 
-        if ("Final".equalsIgnoreCase(record.period())) {
-            if (!subjectEnrollmentDao.existsInYear(record.studentId(), record.subjectId(), record.year())) {
+        if ("Final".equalsIgnoreCase(period)) {
+            if (!subjectEnrollmentDao.existsInYear(studentId, subjectId, year)) {
                 throw new BusinessException("Una nota Final exige que el estudiante esté inscrito en la materia en al menos un período del año.");
             }
         } else {
-            if (!subjectEnrollmentDao.exists(record.studentId(), record.subjectId(), record.year(), record.period())) {
-                throw new BusinessException("El estudiante no está inscrito en la materia para el período " + record.period() + ".");
+            if (!subjectEnrollmentDao.exists(studentId, subjectId, year, period)) {
+                throw new BusinessException("El estudiante no está inscrito en la materia para el período " + period + ".");
             }
         }
 
-        if (!assignmentDao.teacherHasSubject(record.teacherId(), record.subjectId(), record.year())) {
+        if (!assignmentDao.teacherHasSubject(teacherId, subjectId, year)) {
             throw new BusinessException("El profesor no tiene asignada la materia en el año académico.");
         }
+    }
+
+    private void validateGradeRecord(AcademicRecord record) {
+        if (record == null) {
+            throw new BusinessException("El registro de nota es obligatorio.");
+        }
+        if (record.grade() == null
+                || record.grade().compareTo(BigDecimal.ZERO) < 0
+                || record.grade().compareTo(new BigDecimal("5.0")) > 0
+                || !InputValidator.isValidGrade(record.grade().doubleValue())) {
+            throw new BusinessException("La nota debe estar entre 0.0 y 5.0 con un solo decimal.");
+        }
+        if (record.recordDate() != null && record.recordDate().isAfter(LocalDate.now())) {
+            throw new BusinessException("La fecha de registro de la nota no puede ser futura.");
+        }
+        validateGradePrerequisites(record.studentId(), record.subjectId(), record.year(), record.period(), record.teacherId());
     }
 
     // ==========================================
@@ -203,9 +233,19 @@ public class AcademicService {
         attendanceDao.insertAll(attendances);
     }
 
+    public boolean hasAttendance(int studentId, int subjectId, LocalDate date) {
+        return attendanceDao.exists(studentId, subjectId, date);
+    }
+
     public void validateCourseAttendancePrerequisites(int subjectId, int teacherId, int year, LocalDate date) {
+        if (year <= 0) {
+            throw new BusinessException("El año académico debe ser mayor que cero.");
+        }
         if (date == null || date.isAfter(LocalDate.now())) {
             throw new BusinessException("La fecha de asistencia no puede ser futura.");
+        }
+        if (date.getYear() != year) {
+            throw new BusinessException("El año de la fecha de asistencia (" + date.getYear() + ") no coincide con el año académico (" + year + ").");
         }
         subjectDao.findById(subjectId).orElseThrow(() -> new BusinessException("Materia no encontrada."));
         if (!assignmentDao.teacherHasSubject(teacherId, subjectId, year)) {
@@ -214,6 +254,13 @@ public class AcademicService {
     }
 
     public List<Student> getEnrolledStudents(int subjectId, int year, String period, String section) {
+        subjectDao.findById(subjectId).orElseThrow(() -> new BusinessException("Materia no encontrada."));
+        if (year <= 0) {
+            throw new BusinessException("El año académico debe ser mayor que cero.");
+        }
+        if (period == null || !REGULAR_PERIODS.contains(period)) {
+            throw new BusinessException("El período debe ser I, II, III o IV.");
+        }
         List<SubjectEnrollment> enrollments = subjectEnrollmentDao.findByCourse(subjectId, year, period, section);
         List<Student> students = new ArrayList<>();
         for (SubjectEnrollment se : enrollments) {
@@ -223,7 +270,13 @@ public class AcademicService {
     }
 
     public List<AbsenceAlertDetail> getAbsenceAlerts(int threshold, int year) {
-        List<AttendanceDao.WeeklyAbsenceAlert> alerts = attendanceDao.findStudentsAboveThreshold(threshold);
+        if (threshold < 0) {
+            throw new BusinessException("El umbral de inasistencias debe ser mayor o igual a cero.");
+        }
+        if (year <= 0) {
+            throw new BusinessException("El año académico debe ser mayor que cero.");
+        }
+        List<AttendanceDao.WeeklyAbsenceAlert> alerts = attendanceDao.findStudentsAboveThreshold(threshold, year);
         List<AbsenceAlertDetail> details = new ArrayList<>();
         for (AttendanceDao.WeeklyAbsenceAlert alert : alerts) {
             Student student = studentDao.findById(alert.studentId()).orElse(null);
@@ -235,6 +288,10 @@ public class AcademicService {
     }
 
     public int getTotalAbsences(int studentId, int year) {
+        studentDao.findById(studentId).orElseThrow(() -> new BusinessException("Estudiante no encontrado."));
+        if (year <= 0) {
+            throw new BusinessException("El año académico debe ser mayor que cero.");
+        }
         return attendanceDao.countTotalAbsences(studentId, year);
     }
 

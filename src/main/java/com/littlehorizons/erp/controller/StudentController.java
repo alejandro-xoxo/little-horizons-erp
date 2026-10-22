@@ -11,8 +11,10 @@ import com.littlehorizons.erp.service.StudentService.StudentProfile;
 import com.littlehorizons.erp.view.StudentView;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public class StudentController extends BaseController implements MenuModule {
 
@@ -71,6 +73,10 @@ public class StudentController extends BaseController implements MenuModule {
         Student student = view.readStudentForm();
 
         List<GradeLevel> grades = service.findAllGrades();
+        if (grades == null || grades.isEmpty()) {
+            view.showError("No hay grados registrados en el sistema.");
+            return;
+        }
         GradeLevel grade = view.selectGrade(grades);
 
         List<GuardianLink> guardians = new ArrayList<>();
@@ -93,6 +99,14 @@ public class StudentController extends BaseController implements MenuModule {
                 guardian = view.readGuardianForm(null);
             }
 
+            final String docNum = guardian.documentNumber();
+            boolean alreadyInList = guardians.stream().anyMatch(g -> g.guardian().documentNumber().equals(docNum));
+            if (alreadyInList) {
+                view.showError("Este acudiente ya fue agregado a la lista del estudiante.");
+                adding = view.readYesNo("¿Desea agregar otro acudiente?");
+                continue;
+            }
+
             boolean isPrimary;
             if (guardians.isEmpty()) {
                 isPrimary = true;
@@ -101,10 +115,24 @@ public class StudentController extends BaseController implements MenuModule {
                 isPrimary = view.readYesNo("¿Es acudiente principal?");
             }
 
+            if (isPrimary) {
+                for (int i = 0; i < guardians.size(); i++) {
+                    GuardianLink prev = guardians.get(i);
+                    if (prev.primary()) {
+                        guardians.set(i, new GuardianLink(prev.guardian(), false, prev.emergencyContact()));
+                    }
+                }
+            }
+
             boolean emergency = view.readYesNo("¿Es contacto de emergencia?");
             guardians.add(new GuardianLink(guardian, isPrimary, emergency));
 
             adding = view.readYesNo("¿Desea agregar otro acudiente?");
+        }
+
+        if (guardians.isEmpty()) {
+            view.showError("Debe registrar al menos un acudiente.");
+            return;
         }
 
         long primaryCount = guardians.stream().filter(GuardianLink::primary).count();
@@ -127,15 +155,27 @@ public class StudentController extends BaseController implements MenuModule {
         view.banner("BÚSQUEDA DE ESTUDIANTES");
         String text = view.readRequired("Ingrese nombre o documento a buscar: ");
         List<Student> results = service.searchStudents(text);
+        if (results == null || results.isEmpty()) {
+            view.showInfo("No se encontraron estudiantes que coincidan con la búsqueda.");
+            return;
+        }
         view.showStudentTable(results, this::resolveGradeName);
     }
 
     private void listByGrade() {
         view.banner("LISTADO DE ESTUDIANTES POR GRADO");
         List<GradeLevel> grades = service.findAllGrades();
+        if (grades == null || grades.isEmpty()) {
+            view.showError("No hay grados registrados en el sistema.");
+            return;
+        }
         GradeLevel grade = view.selectGrade(grades);
         int currentYear = AppConfig.getInstance().getAcademicYear();
         List<Student> students = service.getStudentsByGrade(grade.id(), currentYear);
+        if (students == null || students.isEmpty()) {
+            view.showInfo("No hay estudiantes matriculados en " + grade.name() + " para el año " + currentYear + ".");
+            return;
+        }
         view.showStudentTable(students, id -> grade.name());
     }
 
@@ -164,6 +204,11 @@ public class StudentController extends BaseController implements MenuModule {
                     view.showError("No se encontró ningún acudiente con ese documento.");
                     return;
                 }
+                boolean alreadyLinked = links.stream().anyMatch(l -> l.guardian().id() == gOpt.get().id());
+                if (alreadyLinked) {
+                    view.showError("El acudiente ya se encuentra vinculado a este estudiante.");
+                    return;
+                }
                 boolean primary = view.readYesNo("¿Es acudiente principal?");
                 boolean emergency = view.readYesNo("¿Es contacto de emergencia?");
                 service.linkGuardian(studentId, gOpt.get().id(), primary, emergency);
@@ -171,7 +216,19 @@ public class StudentController extends BaseController implements MenuModule {
             }
             case 1 -> {
                 Guardian g = view.readGuardianForm(null);
-                int guardianId = service.saveGuardian(g);
+                Optional<Guardian> existing = service.findGuardianByDocument(g.documentNumber());
+                int guardianId;
+                if (existing.isPresent()) {
+                    view.showInfo("Ya existe un acudiente registrado con ese número de documento. Se procederá a vincularlo.");
+                    guardianId = existing.get().id();
+                } else {
+                    guardianId = service.saveGuardian(g);
+                }
+                boolean alreadyLinked = links.stream().anyMatch(l -> l.guardian().id() == guardianId);
+                if (alreadyLinked) {
+                    view.showError("El acudiente ya se encuentra vinculado a este estudiante.");
+                    return;
+                }
                 boolean primary = view.readYesNo("¿Es acudiente principal?");
                 boolean emergency = view.readYesNo("¿Es contacto de emergencia?");
                 service.linkGuardian(studentId, guardianId, primary, emergency);
@@ -182,14 +239,26 @@ public class StudentController extends BaseController implements MenuModule {
                     view.showInfo("El estudiante no tiene acudientes para desvincular.");
                     return;
                 }
+                if (links.size() == 1) {
+                    view.showError("El estudiante solo tiene un acudiente; no es posible desvincularlo sin asignar otro.");
+                    return;
+                }
                 int idx = view.readInt("Seleccione el número de acudiente a desvincular (1-" + links.size() + "): ", 1, links.size()) - 1;
-                int guardianId = links.get(idx).guardian().id();
-                service.unlinkGuardian(studentId, guardianId);
+                GuardianLink linkToRemove = links.get(idx);
+                if (linkToRemove.primary()) {
+                    view.showError("No se puede desvincular al acudiente principal. Designe otro como principal primero.");
+                    return;
+                }
+                service.unlinkGuardian(studentId, linkToRemove.guardian().id());
                 view.showSuccess("Acudiente desvinculado con éxito.");
             }
             case 3 -> {
                 if (links.isEmpty()) {
                     view.showInfo("El estudiante no tiene acudientes.");
+                    return;
+                }
+                if (links.size() == 1) {
+                    view.showInfo("El único acudiente ya es el principal.");
                     return;
                 }
                 int idx = view.readInt("Seleccione el número de acudiente que será el principal (1-" + links.size() + "): ", 1, links.size()) - 1;
@@ -207,6 +276,10 @@ public class StudentController extends BaseController implements MenuModule {
         view.showInfo("Estudiante: " + student.fullName() + " (Estado: " + student.status() + ")");
 
         List<GradeLevel> grades = service.findAllGrades();
+        if (grades == null || grades.isEmpty()) {
+            view.showError("No hay grados registrados en el sistema.");
+            return;
+        }
         GradeLevel grade = view.selectGrade(grades);
         int year = AppConfig.getInstance().getAcademicYear();
         String notes = view.readOptional("Observaciones");
@@ -222,6 +295,10 @@ public class StudentController extends BaseController implements MenuModule {
         view.showInfo("Estudiante: " + student.fullName() + " | Estado actual: " + student.status());
 
         String newStatus = view.selectStudentStatus();
+        if (newStatus.equalsIgnoreCase(student.status())) {
+            view.showInfo("El estudiante ya se encuentra en estado " + newStatus + ".");
+            return;
+        }
         service.changeStudentStatus(studentId, newStatus);
         view.showSuccess("Estado del estudiante actualizado a: " + newStatus);
     }
@@ -244,8 +321,14 @@ public class StudentController extends BaseController implements MenuModule {
 
         int currentGradeId = profile.currentEnrollment().gradeId();
         List<Subject> subjects = service.getSubjectsForGrade(currentGradeId);
-        if (subjects.isEmpty()) {
+        if (subjects == null || subjects.isEmpty()) {
             view.showInfo("No hay materias registradas para el grado del estudiante.");
+            return;
+        }
+
+        boolean hasActive = subjects.stream().anyMatch(Subject::active);
+        if (!hasActive) {
+            view.showInfo("No hay materias activas disponibles para el grado del estudiante.");
             return;
         }
 
@@ -259,24 +342,66 @@ public class StudentController extends BaseController implements MenuModule {
                     + (!sub.active() ? " [Inactiva]" : ""));
         }
 
-        String sel = view.readRequired("Ingrese números separados por coma (ej: 1, 2) o 'todas': ");
         List<Integer> selectedSubjectIds = new ArrayList<>();
-        if ("todas".equalsIgnoreCase(sel.trim())) {
-            for (Subject sub : subjects) {
-                if (sub.active()) {
-                    selectedSubjectIds.add(sub.id());
+        while (true) {
+            String sel = view.readRequired("Ingrese números separados por coma (ej: 1, 2), 'todas' o '0' para cancelar: ");
+            String trimmed = sel.trim();
+            if ("0".equals(trimmed)) {
+                view.showInfo("Operación cancelada.");
+                return;
+            }
+            if ("todas".equalsIgnoreCase(trimmed)) {
+                for (Subject sub : subjects) {
+                    if (sub.active()) {
+                        selectedSubjectIds.add(sub.id());
+                    }
+                }
+                if (selectedSubjectIds.isEmpty()) {
+                    view.showError("No hay materias activas disponibles para inscribir.");
+                    return;
+                }
+                break;
+            }
+
+            String[] parts = trimmed.split(",", -1);
+            boolean valid = true;
+            Set<Integer> chosenIds = new LinkedHashSet<>();
+            for (String part : parts) {
+                String p = part.trim();
+                if (p.isEmpty()) {
+                    view.showError("Formato inválido: la lista contiene elementos vacíos entre comas.");
+                    valid = false;
+                    break;
+                }
+                int num;
+                try {
+                    num = Integer.parseInt(p);
+                } catch (NumberFormatException e) {
+                    view.showError("'" + p + "' no es un número entero válido.");
+                    valid = false;
+                    break;
+                }
+                if (num < 1 || num > subjects.size()) {
+                    view.showError("El número " + num + " está fuera de rango (1 a " + subjects.size() + ").");
+                    valid = false;
+                    break;
+                }
+                Subject sub = subjects.get(num - 1);
+                if (!sub.active()) {
+                    view.showError("La materia " + sub.code() + " (" + sub.name() + ") está inactiva y no se puede inscribir.");
+                    valid = false;
+                    break;
+                }
+                if (!chosenIds.add(sub.id())) {
+                    view.showError("La materia " + sub.code() + " fue seleccionada más de una vez.");
+                    valid = false;
+                    break;
                 }
             }
-        } else {
-            String[] parts = sel.split(",");
-            for (String p : parts) {
-                try {
-                    int num = Integer.parseInt(p.trim());
-                    if (num >= 1 && num <= subjects.size()) {
-                        selectedSubjectIds.add(subjects.get(num - 1).id());
-                    }
-                } catch (NumberFormatException ignored) {
-                }
+
+            if (valid) {
+                selectedSubjectIds.addAll(chosenIds);
+                break;
             }
         }
 

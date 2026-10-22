@@ -33,12 +33,18 @@ public class StudentDaoImpl extends BaseJdbcDao implements StudentDao {
 
     @Override
     public Optional<Student> findById(int id) {
+        if (id <= 0) {
+            return Optional.empty();
+        }
         return queryOne("SELECT * FROM estudiantes WHERE id_estudiante = ?", StudentDaoImpl::map, id);
     }
 
     @Override
     public Optional<Student> findByDocument(String documentNumber) {
-        return queryOne("SELECT * FROM estudiantes WHERE numero_documento = ?", StudentDaoImpl::map, documentNumber);
+        if (documentNumber == null || documentNumber.isBlank()) {
+            return Optional.empty();
+        }
+        return queryOne("SELECT * FROM estudiantes WHERE numero_documento = ?", StudentDaoImpl::map, documentNumber.trim());
     }
 
     @Override
@@ -54,6 +60,9 @@ public class StudentDaoImpl extends BaseJdbcDao implements StudentDao {
 
     @Override
     public List<Student> findByGrade(int gradeId, int year) {
+        if (gradeId <= 0 || year <= 0) {
+            return List.of();
+        }
         String sql = "SELECT e.* FROM estudiantes e " +
                 "JOIN matriculas m ON e.id_estudiante = m.id_estudiante " +
                 "WHERE m.id_grado = ? AND m.año_academico = ? AND m.estado_matricula = 'Activa' " +
@@ -63,6 +72,9 @@ public class StudentDaoImpl extends BaseJdbcDao implements StudentDao {
 
     @Override
     public int updateStatus(int studentId, String status) {
+        if (studentId <= 0) {
+            return 0;
+        }
         return update("UPDATE estudiantes SET estado = ? WHERE id_estudiante = ?", status, studentId);
     }
 

@@ -62,7 +62,7 @@ class StudentServiceTest {
         // 12 grades
         String[] names = {
                 "Preescolar", "Primero", "Segundo", "Tercero", "Cuarto", "Quinto",
-                "Sexto", "Séptimo", "Octavo", "Noveno", "Décimo", "Once"
+                "Sexto", "SÃ©ptimo", "Octavo", "Noveno", "DÃ©cimo", "Once"
         };
         for (int i = 0; i < names.length; i++) {
             int id = i + 1;
@@ -372,8 +372,8 @@ class StudentServiceTest {
 
         List<GuardianLink> guardians = List.of(new GuardianLink(g, true, true));
 
-        // Grade id 7 is Séptimo (numeric level 6 -> ref age 11). Born 2015-06-15, in 2026 age is 10. |10-11|=1 <= 3 -> ok
-        int sId = service.registerStudent(student, guardians, 7, "Matrícula inicial");
+        // Grade id 7 is SÃ©ptimo (numeric level 6 -> ref age 11). Born 2015-06-15, in 2026 age is 10. |10-11|=1 <= 3 -> ok
+        int sId = service.registerStudent(student, guardians, 7, "MatrÃ­cula inicial");
         assertTrue(sId > 0);
 
         Student created = service.getStudent(sId);
@@ -462,10 +462,10 @@ class StudentServiceTest {
         Guardian g = new Guardian(0, "CC", "52001122", "Marta", null, "Silva", null, "Madre",
                 "3109876543", null, null, null, null, true);
 
-        // Grade 7 is Séptimo (level 6)
+        // Grade 7 is SÃ©ptimo (level 6)
         int sId = service.registerStudent(s, List.of(new GuardianLink(g, true, true)), 7, null);
 
-        // Cannot graduate from Séptimo
+        // Cannot graduate from SÃ©ptimo
         assertThrows(BusinessException.class, () -> service.changeStudentStatus(sId, "Graduado"));
     }
 
@@ -478,10 +478,10 @@ class StudentServiceTest {
         int sId = service.registerStudent(s, List.of(new GuardianLink(g, true, true)), 7, null);
 
         // Add subjects
-        Subject subGrade7 = new Subject(10, "MAT-7", "Matemáticas 7", null, 7, 4, true);
+        Subject subGrade7 = new Subject(10, "MAT-7", "MatemÃ¡ticas 7", null, 7, 4, true);
         subjects.put(10, subGrade7);
 
-        Subject subGrade8 = new Subject(11, "MAT-8", "Matemáticas 8", null, 8, 4, true);
+        Subject subGrade8 = new Subject(11, "MAT-8", "MatemÃ¡ticas 8", null, 8, 4, true);
         subjects.put(11, subGrade8);
 
         // Cannot enroll in subject of grade 8 (student is in grade 7)
@@ -503,5 +503,80 @@ class StudentServiceTest {
 
         assertThrows(BusinessException.class, () ->
                 service.enrollSubjects(sId, List.of(12), 2026, "I", "A"));
+    }
+
+    @Test
+    void testGetStudentInvalidIdThrows() {
+        assertThrows(BusinessException.class, () -> service.getStudent(-1));
+        assertThrows(BusinessException.class, () -> service.getStudent(0));
+        assertThrows(BusinessException.class, () -> service.getStudent(99999));
+    }
+
+    @Test
+    void testSearchStudentsEmpty() {
+        assertTrue(service.searchStudents(null).isEmpty());
+        assertTrue(service.searchStudents("").isEmpty());
+        assertTrue(service.searchStudents("   ").isEmpty());
+    }
+
+    @Test
+    void testSaveGuardianValidations() {
+        assertThrows(BusinessException.class, () -> service.saveGuardian(null));
+
+        // Missing names
+        Guardian gNoName = new Guardian(0, "CC", "52001122", "", null, "Silva", null, "Madre", "3109876543", null, null, null, null, true);
+        assertThrows(BusinessException.class, () -> service.saveGuardian(gNoName));
+
+        // Invalid document
+        Guardian gBadDoc = new Guardian(0, "CC", "123", "Marta", null, "Silva", null, "Madre", "3109876543", null, null, null, null, true);
+        assertThrows(BusinessException.class, () -> service.saveGuardian(gBadDoc));
+
+        // Invalid phone
+        Guardian gBadPhone = new Guardian(0, "CC", "52001122", "Marta", null, "Silva", null, "Madre", "abc", null, null, null, null, true);
+        assertThrows(BusinessException.class, () -> service.saveGuardian(gBadPhone));
+
+        // Duplicate document
+        Guardian gValid = new Guardian(0, "CC", "52001122", "Marta", null, "Silva", null, "Madre", "3109876543", null, null, null, null, true);
+        service.saveGuardian(gValid);
+        Guardian gDup = new Guardian(0, "CC", "52001122", "Maria", null, "Silva", null, "Madre", "3109876544", null, null, null, null, true);
+        assertThrows(BusinessException.class, () -> service.saveGuardian(gDup));
+    }
+
+    @Test
+    void testLinkGuardianAlreadyLinkedThrows() {
+        Student s = new Student(0, "TI", "1098765432", "Carlos", null, "Gomez", null,
+                LocalDate.of(2015, 6, 15), "M", null, null, null, null, null, null, LocalDate.now(), "Activo");
+        Guardian g = new Guardian(0, "CC", "52001122", "Marta", null, "Silva", null, "Madre",
+                "3109876543", null, null, null, null, true);
+        int sId = service.registerStudent(s, List.of(new GuardianLink(g, true, true)), 7, null);
+        int gId = service.getGuardians(sId).get(0).guardian().id();
+
+        assertThrows(BusinessException.class, () -> service.linkGuardian(sId, gId, false, false));
+    }
+
+    @Test
+    void testEnrollSubjectsDuplicateIdsThrows() {
+        Student s = new Student(0, "TI", "1098765432", "Carlos", null, "Gomez", null,
+                LocalDate.of(2015, 6, 15), "M", null, null, null, null, null, null, LocalDate.now(), "Activo");
+        Guardian g = new Guardian(0, "CC", "52001122", "Marta", null, "Silva", null, "Madre",
+                "3109876543", null, null, null, null, true);
+        int sId = service.registerStudent(s, List.of(new GuardianLink(g, true, true)), 7, null);
+
+        Subject subGrade7 = new Subject(10, "MAT-7", "Matemáticas 7", null, 7, 4, true);
+        subjects.put(10, subGrade7);
+
+        assertThrows(BusinessException.class, () ->
+                service.enrollSubjects(sId, List.of(10, 10), 2026, "I", "A"));
+    }
+
+    @Test
+    void testChangeStatusToSameStatusThrows() {
+        Student s = new Student(0, "TI", "1098765432", "Carlos", null, "Gomez", null,
+                LocalDate.of(2015, 6, 15), "M", null, null, null, null, null, null, LocalDate.now(), "Activo");
+        Guardian g = new Guardian(0, "CC", "52001122", "Marta", null, "Silva", null, "Madre",
+                "3109876543", null, null, null, null, true);
+        int sId = service.registerStudent(s, List.of(new GuardianLink(g, true, true)), 7, null);
+
+        assertThrows(BusinessException.class, () -> service.changeStudentStatus(sId, "Activo"));
     }
 }

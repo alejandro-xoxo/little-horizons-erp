@@ -418,6 +418,178 @@ class AcademicServiceTest {
     }
 
     // ==========================================
+    // PRUEBAS DE ENDURECIMIENTO Y VALIDACIONES EXTRA
+    // ==========================================
+
+    @Test
+    @DisplayName("Validación de prerrequisitos de calificación rechaza IDs inexistentes o años inválidos")
+    void testValidateGradePrerequisitesHardening() {
+        // Año inválido
+        assertThrows(BusinessException.class, () ->
+                service.validateGradePrerequisites(1, 10, -1, "I", 5));
+        assertThrows(BusinessException.class, () ->
+                service.validateGradePrerequisites(1, 10, 0, "I", 5));
+
+        // Período inválido o nulo
+        assertThrows(BusinessException.class, () ->
+                service.validateGradePrerequisites(1, 10, 2026, null, 5));
+        assertThrows(BusinessException.class, () ->
+                service.validateGradePrerequisites(1, 10, 2026, "V", 5));
+
+        // Estudiante inexistente
+        assertThrows(BusinessException.class, () ->
+                service.validateGradePrerequisites(9999, 10, 2026, "I", 5));
+
+        // Estudiante no activo (suspendido)
+        assertThrows(BusinessException.class, () ->
+                service.validateGradePrerequisites(2, 10, 2026, "I", 5));
+
+        // Materia inexistente
+        assertThrows(BusinessException.class, () ->
+                service.validateGradePrerequisites(1, 9999, 2026, "I", 5));
+
+        // Profesor sin la materia asignada
+        assertThrows(BusinessException.class, () ->
+                service.validateGradePrerequisites(1, 10, 2026, "I", 9999));
+
+        // Prerrequisitos válidos no lanzan excepción
+        assertDoesNotThrow(() ->
+                service.validateGradePrerequisites(1, 10, 2026, "I", 5));
+    }
+
+    @Test
+    @DisplayName("Consultas de promedios rechazan IDs inexistentes y años inválidos")
+    void testAveragesWithInvalidIds() {
+        // Estudiante inexistente en promedio de período
+        assertThrows(BusinessException.class, () ->
+                service.getStudentPeriodAverage(9999, 2026, "I"));
+
+        // Año inválido en promedio de período
+        assertThrows(BusinessException.class, () ->
+                service.getStudentPeriodAverage(1, -2026, "I"));
+
+        // Período inválido en promedio de período
+        assertThrows(BusinessException.class, () ->
+                service.getStudentPeriodAverage(1, 2026, "Final"));
+
+        // Materia inexistente en promedio de curso
+        assertThrows(BusinessException.class, () ->
+                service.getCourseAverage(9999, 2026, "I"));
+
+        // Año inválido en promedio de curso
+        assertThrows(BusinessException.class, () ->
+                service.getCourseAverage(10, 0, "I"));
+
+        // Estudiante inexistente en promedio por materia
+        assertThrows(BusinessException.class, () ->
+                service.getSubjectAverage(9999, 10, 2026));
+
+        // Materia inexistente en promedio por materia
+        assertThrows(BusinessException.class, () ->
+                service.getSubjectAverage(1, 9999, 2026));
+
+        // Estudiante inexistente en resúmenes o lista de promedios
+        assertThrows(BusinessException.class, () ->
+                service.getSubjectSummariesByStudent(9999, 2026));
+        assertThrows(BusinessException.class, () ->
+                service.getSubjectAveragesByStudent(9999, 2026));
+
+        // Estudiante inexistente en total de ausencias
+        assertThrows(BusinessException.class, () ->
+                service.getTotalAbsences(9999, 2026));
+    }
+
+    @Test
+    @DisplayName("Prerrequisitos de asistencia de curso validan año de fecha y asignación docente")
+    void testCourseAttendancePrerequisitesHardening() {
+        LocalDate today = LocalDate.now();
+
+        // Año <= 0
+        assertThrows(BusinessException.class, () ->
+                service.validateCourseAttendancePrerequisites(10, 5, -1, today));
+
+        // Fecha nula o futura
+        assertThrows(BusinessException.class, () ->
+                service.validateCourseAttendancePrerequisites(10, 5, 2026, null));
+        assertThrows(BusinessException.class, () ->
+                service.validateCourseAttendancePrerequisites(10, 5, 2026, today.plusDays(2)));
+
+        // Año de la fecha no coincide con el año académico seleccionado
+        LocalDate date2025 = LocalDate.of(2025, 5, 10);
+        assertThrows(BusinessException.class, () ->
+                service.validateCourseAttendancePrerequisites(10, 5, 2026, date2025));
+
+        // Materia inexistente
+        assertThrows(BusinessException.class, () ->
+                service.validateCourseAttendancePrerequisites(9999, 5, 2026, today));
+
+        // Profesor no asignado
+        assertThrows(BusinessException.class, () ->
+                service.validateCourseAttendancePrerequisites(10, 9999, 2026, today));
+
+        // Prerrequisitos válidos no fallan
+        assertDoesNotThrow(() ->
+                service.validateCourseAttendancePrerequisites(10, 5, today.getYear(), today));
+    }
+
+    @Test
+    @DisplayName("Consulta de estudiantes inscritos valida materia, año y período")
+    void testGetEnrolledStudentsValidation() {
+        assertThrows(BusinessException.class, () ->
+                service.getEnrolledStudents(9999, 2026, "I", "A"));
+        assertThrows(BusinessException.class, () ->
+                service.getEnrolledStudents(10, -1, "I", "A"));
+        assertThrows(BusinessException.class, () ->
+                service.getEnrolledStudents(10, 2026, null, "A"));
+        assertThrows(BusinessException.class, () ->
+                service.getEnrolledStudents(10, 2026, "Invalido", "A"));
+
+        List<Student> enrolled = service.getEnrolledStudents(10, 2026, "I", "A");
+        assertNotNull(enrolled);
+        assertEquals(1, enrolled.size());
+        assertEquals(1, enrolled.get(0).id());
+    }
+
+    @Test
+    @DisplayName("Verificación de asistencia existente (hasAttendance)")
+    void testHasAttendanceCheck() {
+        LocalDate today = LocalDate.now();
+        assertFalse(service.hasAttendance(1, 10, today));
+
+        Attendance att = new Attendance(0, 1, 10, today, "Presente", null, 5);
+        service.registerAttendance(att);
+
+        assertTrue(service.hasAttendance(1, 10, today));
+        assertFalse(service.hasAttendance(1, 10, today.minusDays(1)));
+    }
+
+    @Test
+    @DisplayName("Reporte de alertas valida umbral y año mayores o iguales a cero")
+    void testAbsenceAlertsValidation() {
+        assertThrows(BusinessException.class, () -> service.getAbsenceAlerts(-1, 2026));
+        assertThrows(BusinessException.class, () -> service.getAbsenceAlerts(3, 0));
+        assertThrows(BusinessException.class, () -> service.getAbsenceAlerts(3, -2026));
+    }
+
+    @Test
+    @DisplayName("Registro de nota rechaza registros nulos, notas fuera de rango 0.0-5.0 y fechas futuras")
+    void testGradeRecordValidationHardening() {
+        assertThrows(BusinessException.class, () -> service.registerGrade(null));
+
+        // Nota negativa
+        AcademicRecord recNeg = new AcademicRecord(0, 1, 10, 5, 2026, "I", new BigDecimal("-0.1"), null, LocalDate.now());
+        assertThrows(BusinessException.class, () -> service.registerGrade(recNeg));
+
+        // Nota mayor a 5.0
+        AcademicRecord recOver = new AcademicRecord(0, 1, 10, 5, 2026, "I", new BigDecimal("5.1"), null, LocalDate.now());
+        assertThrows(BusinessException.class, () -> service.registerGrade(recOver));
+
+        // Fecha de registro futura
+        AcademicRecord recFuture = new AcademicRecord(0, 1, 10, 5, 2026, "I", new BigDecimal("4.0"), null, LocalDate.now().plusDays(1));
+        assertThrows(BusinessException.class, () -> service.registerGrade(recFuture));
+    }
+
+    // ==========================================
     // FAKE DAOS PARA PRUEBAS SIN BASE DE DATOS
     // ==========================================
 
@@ -601,7 +773,7 @@ class AcademicServiceTest {
         }
 
         @Override
-        public List<WeeklyAbsenceAlert> findStudentsAboveThreshold(int threshold) {
+        public List<WeeklyAbsenceAlert> findStudentsAboveThreshold(int threshold, int year) {
             // Group by studentId and yearWeek, count distinct dates with Ausente
             Map<String, Set<LocalDate>> grouped = new HashMap<>();
             for (Attendance a : list) {

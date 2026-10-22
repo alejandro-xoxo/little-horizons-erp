@@ -4,6 +4,7 @@ import com.littlehorizons.erp.config.AppConfig;
 import com.littlehorizons.erp.model.AcademicRecord;
 import com.littlehorizons.erp.model.Attendance;
 import com.littlehorizons.erp.model.Student;
+import com.littlehorizons.erp.model.Subject;
 import com.littlehorizons.erp.service.AcademicService;
 import com.littlehorizons.erp.service.AcademicService.AbsenceAlertDetail;
 import com.littlehorizons.erp.service.AcademicService.SubjectGradeSummary;
@@ -62,6 +63,8 @@ public class AcademicController extends BaseController implements MenuModule {
         String period = view.readPeriod(true);
         int teacherId = view.readTeacherId();
 
+        service.validateGradePrerequisites(studentId, subjectId, year, period, teacherId);
+
         Optional<AcademicRecord> existing = service.findGrade(studentId, subjectId, year, period);
         if (existing.isPresent()) {
             boolean update = view.confirmUpdate(
@@ -73,9 +76,6 @@ public class AcademicController extends BaseController implements MenuModule {
                 return;
             }
             double gradeVal = view.readGradeValue();
-            if (!InputValidator.isValidGrade(gradeVal)) {
-                throw new BusinessException("La nota debe estar entre 0.0 y 5.0 con un solo decimal.");
-            }
             String observations = view.readObservations();
             AcademicRecord toUpdate = new AcademicRecord(
                     existing.get().id(),
@@ -92,9 +92,6 @@ public class AcademicController extends BaseController implements MenuModule {
             view.showSuccess("Calificación actualizada correctamente.");
         } else {
             double gradeVal = view.readGradeValue();
-            if (!InputValidator.isValidGrade(gradeVal)) {
-                throw new BusinessException("La nota debe estar entre 0.0 y 5.0 con un solo decimal.");
-            }
             String observations = view.readObservations();
             AcademicRecord toInsert = new AcademicRecord(
                     0,
@@ -154,11 +151,13 @@ public class AcademicController extends BaseController implements MenuModule {
 
     private void viewPeriodAverage() {
         int studentId = view.readStudentId();
+        Student student = service.findStudent(studentId)
+                .orElseThrow(() -> new BusinessException("Estudiante no encontrado."));
         int year = view.readAcademicYear(AppConfig.getInstance().getAcademicYear());
         String period = view.readPeriod(false);
         Optional<BigDecimal> avg = service.getStudentPeriodAverage(studentId, year, period);
         if (avg.isPresent()) {
-            view.showInfo("Promedio general del estudiante en el período " + period + " (" + year + "): " + avg.get().toPlainString());
+            view.showInfo("Promedio general de " + student.fullName() + " en el período " + period + " (" + year + "): " + avg.get().toPlainString());
         } else {
             view.showInfo("No hay calificaciones registradas para el estudiante en el período " + period + ".");
         }
@@ -166,13 +165,15 @@ public class AcademicController extends BaseController implements MenuModule {
 
     private void viewCourseAverage() {
         int subjectId = view.readSubjectId();
+        Subject subject = service.findSubject(subjectId)
+                .orElseThrow(() -> new BusinessException("Materia no encontrada."));
         int year = view.readAcademicYear(AppConfig.getInstance().getAcademicYear());
         boolean byPeriod = view.confirmUpdate("¿Desea filtrar por período específico?");
         String period = byPeriod ? view.readPeriod(false) : null;
         Optional<BigDecimal> avg = service.getCourseAverage(subjectId, year, period);
         if (avg.isPresent()) {
             String label = period != null ? "período " + period : "año completo";
-            view.showInfo("Promedio del curso en la materia (" + label + "): " + avg.get().toPlainString());
+            view.showInfo("Promedio del curso en " + subject.name() + " (" + label + "): " + avg.get().toPlainString());
         } else {
             view.showInfo("No hay calificaciones registradas para el curso en la materia.");
         }
@@ -191,6 +192,13 @@ public class AcademicController extends BaseController implements MenuModule {
         if (students.isEmpty()) {
             view.showInfo("No hay estudiantes inscritos en el curso y período seleccionados.");
             return;
+        }
+
+        for (Student s : students) {
+            if (service.hasAttendance(s.id(), subjectId, date)) {
+                view.showError("Ya existen registros de asistencia para la fecha " + date + " en este curso.");
+                return;
+            }
         }
 
         view.showInfo("Registrando asistencia para " + students.size() + " estudiante(s).");

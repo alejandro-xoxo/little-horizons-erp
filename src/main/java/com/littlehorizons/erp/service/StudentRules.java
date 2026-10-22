@@ -17,6 +17,9 @@ public final class StudentRules {
     }
 
     public static int calculateAgeAtCutoff(LocalDate birthDate, int academicYear) {
+        if (birthDate == null || academicYear <= 0) {
+            return -1;
+        }
         LocalDate cutoff = LocalDate.of(academicYear, 3, 31);
         return Period.between(birthDate, cutoff).getYears();
     }
@@ -27,6 +30,13 @@ public final class StudentRules {
 
     public static boolean isAgeConsistent(LocalDate birthDate, int numericLevel, int academicYear) {
         if (birthDate == null || !birthDate.isBefore(LocalDate.now())) {
+            return false;
+        }
+        if (academicYear <= 0 || numericLevel < 0 || numericLevel > 11) {
+            return false;
+        }
+        LocalDate cutoff = LocalDate.of(academicYear, 3, 31);
+        if (birthDate.isAfter(cutoff)) {
             return false;
         }
         int age = calculateAgeAtCutoff(birthDate, academicYear);
@@ -50,7 +60,10 @@ public final class StudentRules {
         if (targetStatus == null || !VALID_STATUSES.contains(targetStatus)) {
             throw new BusinessException("El estado especificado no es válido.");
         }
-        if ("Graduado".equalsIgnoreCase(currentStatus) && !"Graduado".equalsIgnoreCase(targetStatus)) {
+        if (currentStatus == null || !VALID_STATUSES.contains(currentStatus)) {
+            throw new BusinessException("El estado actual del estudiante no es válido.");
+        }
+        if ("Graduado".equalsIgnoreCase(currentStatus)) {
             throw new BusinessException("Un estudiante graduado no puede cambiar de estado.");
         }
         if ("Graduado".equalsIgnoreCase(targetStatus) && numericLevel != 11) {
@@ -62,6 +75,11 @@ public final class StudentRules {
         if (guardians == null || guardians.isEmpty()) {
             throw new BusinessException("Todo estudiante debe tener al menos un acudiente.");
         }
+        for (GuardianLink link : guardians) {
+            if (link == null || link.guardian() == null) {
+                throw new BusinessException("La información del acudiente no puede ser nula.");
+            }
+        }
         long primaryCount = guardians.stream().filter(GuardianLink::primary).count();
         if (primaryCount != 1) {
             throw new BusinessException("Debe haber exactamente un acudiente principal.");
@@ -69,12 +87,15 @@ public final class StudentRules {
     }
 
     public static void validatePeriod(String period) {
-        if (period == null || !VALID_PERIODS.contains(period)) {
+        if (period == null || !VALID_PERIODS.contains(period.trim())) {
             throw new BusinessException("El período académico debe ser I, II, III o IV.");
         }
     }
 
     public static void validateCanEnrollSubjects(String studentStatus) {
+        if (studentStatus == null) {
+            throw new BusinessException("El estado del estudiante no es válido.");
+        }
         if ("Suspendido".equalsIgnoreCase(studentStatus)) {
             throw new BusinessException("No se pueden inscribir materias a un estudiante suspendido.");
         }

@@ -15,6 +15,9 @@ public class AcademicRecordDaoImpl extends BaseJdbcDao implements AcademicRecord
 
     @Override
     public int insert(AcademicRecord r) {
+        if (r == null) {
+            throw new IllegalArgumentException("El registro académico no puede ser nulo.");
+        }
         Date recordDate = r.recordDate() != null ? Date.valueOf(r.recordDate()) : Date.valueOf(LocalDate.now());
         return insert(
                 "INSERT INTO registros_academicos (id_estudiante, id_materia, id_profesor, año_academico, periodo_academico, valor_nota, observaciones, fecha_registro) "
@@ -32,6 +35,9 @@ public class AcademicRecordDaoImpl extends BaseJdbcDao implements AcademicRecord
 
     @Override
     public int update(AcademicRecord r) {
+        if (r == null) {
+            throw new IllegalArgumentException("El registro académico no puede ser nulo.");
+        }
         Date recordDate = r.recordDate() != null ? Date.valueOf(r.recordDate()) : Date.valueOf(LocalDate.now());
         if (r.id() > 0) {
             return update(
@@ -60,6 +66,9 @@ public class AcademicRecordDaoImpl extends BaseJdbcDao implements AcademicRecord
 
     @Override
     public Optional<AcademicRecord> find(int studentId, int subjectId, int year, String period) {
+        if (period == null || period.isBlank()) {
+            return Optional.empty();
+        }
         return queryOne(
                 "SELECT * FROM registros_academicos WHERE id_estudiante = ? AND id_materia = ? AND año_academico = ? AND periodo_academico = ?",
                 this::map,
@@ -72,6 +81,9 @@ public class AcademicRecordDaoImpl extends BaseJdbcDao implements AcademicRecord
 
     @Override
     public List<AcademicRecord> findByStudent(int studentId) {
+        if (studentId <= 0) {
+            return List.of();
+        }
         return query(
                 "SELECT * FROM registros_academicos WHERE id_estudiante = ? "
                         + "ORDER BY año_academico, CASE periodo_academico WHEN 'I' THEN 1 WHEN 'II' THEN 2 WHEN 'III' THEN 3 WHEN 'IV' THEN 4 WHEN 'Final' THEN 5 ELSE 6 END",
@@ -82,6 +94,9 @@ public class AcademicRecordDaoImpl extends BaseJdbcDao implements AcademicRecord
 
     @Override
     public List<AcademicRecord> findByStudentAndYear(int studentId, int year) {
+        if (studentId <= 0 || year <= 0) {
+            return List.of();
+        }
         return query(
                 "SELECT * FROM registros_academicos WHERE id_estudiante = ? AND año_academico = ? "
                         + "ORDER BY CASE periodo_academico WHEN 'I' THEN 1 WHEN 'II' THEN 2 WHEN 'III' THEN 3 WHEN 'IV' THEN 4 WHEN 'Final' THEN 5 ELSE 6 END",
@@ -93,6 +108,9 @@ public class AcademicRecordDaoImpl extends BaseJdbcDao implements AcademicRecord
 
     @Override
     public List<AcademicRecord> findByCourse(int subjectId, int year, String period) {
+        if (subjectId <= 0 || year <= 0 || period == null) {
+            return List.of();
+        }
         return query(
                 "SELECT * FROM registros_academicos WHERE id_materia = ? AND año_academico = ? AND periodo_academico = ? "
                         + "ORDER BY id_estudiante",
@@ -105,6 +123,9 @@ public class AcademicRecordDaoImpl extends BaseJdbcDao implements AcademicRecord
 
     @Override
     public Optional<BigDecimal> findAverageByStudentAndSubject(int studentId, int subjectId, int year) {
+        if (studentId <= 0 || subjectId <= 0 || year <= 0) {
+            return Optional.empty();
+        }
         List<BigDecimal> list = query(
                 "SELECT ROUND(AVG(valor_nota), 1) FROM registros_academicos "
                         + "WHERE id_estudiante = ? AND id_materia = ? AND año_academico = ? AND periodo_academico != 'Final'",
@@ -118,6 +139,9 @@ public class AcademicRecordDaoImpl extends BaseJdbcDao implements AcademicRecord
 
     @Override
     public Optional<BigDecimal> findAverageByStudentAndPeriod(int studentId, int year, String period) {
+        if (studentId <= 0 || year <= 0 || period == null) {
+            return Optional.empty();
+        }
         List<BigDecimal> list = query(
                 "SELECT ROUND(AVG(valor_nota), 1) FROM registros_academicos "
                         + "WHERE id_estudiante = ? AND año_academico = ? AND periodo_academico = ? AND periodo_academico != 'Final'",
@@ -131,6 +155,9 @@ public class AcademicRecordDaoImpl extends BaseJdbcDao implements AcademicRecord
 
     @Override
     public Optional<BigDecimal> findCourseAverage(int subjectId, int year, String period) {
+        if (subjectId <= 0 || year <= 0) {
+            return Optional.empty();
+        }
         String sql;
         Object[] params;
         if (period != null && !period.isBlank()) {
@@ -148,6 +175,9 @@ public class AcademicRecordDaoImpl extends BaseJdbcDao implements AcademicRecord
 
     @Override
     public List<AverageLine> findSubjectAveragesByStudent(int studentId, int year) {
+        if (studentId <= 0 || year <= 0) {
+            return List.of();
+        }
         return query(
                 "SELECT m.nombre_materia, ROUND(AVG(r.valor_nota), 1) "
                         + "FROM registros_academicos r "
@@ -163,6 +193,9 @@ public class AcademicRecordDaoImpl extends BaseJdbcDao implements AcademicRecord
 
     @Override
     public List<AverageLine> findCourseAveragesByYearAndPeriod(int year, String period) {
+        if (year <= 0 || period == null) {
+            return List.of();
+        }
         return query(
                 "SELECT m.nombre_materia, ROUND(AVG(r.valor_nota), 1) "
                         + "FROM registros_academicos r "

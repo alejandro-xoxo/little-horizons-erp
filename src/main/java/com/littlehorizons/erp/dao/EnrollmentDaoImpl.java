@@ -24,23 +24,35 @@ public class EnrollmentDaoImpl extends BaseJdbcDao implements EnrollmentDao {
 
     @Override
     public Optional<Enrollment> findByStudentAndYear(int studentId, int year) {
+        if (studentId <= 0 || year <= 0) {
+            return Optional.empty();
+        }
         String sql = "SELECT * FROM matriculas WHERE id_estudiante = ? AND año_academico = ?";
         return queryOne(sql, EnrollmentDaoImpl::map, studentId, year);
     }
 
     @Override
     public List<Enrollment> findByStudent(int studentId) {
+        if (studentId <= 0) {
+            return List.of();
+        }
         String sql = "SELECT * FROM matriculas WHERE id_estudiante = ? ORDER BY año_academico DESC, fecha_matricula DESC";
         return query(sql, EnrollmentDaoImpl::map, studentId);
     }
 
     @Override
     public int updateGrade(int enrollmentId, int gradeId) {
+        if (enrollmentId <= 0 || gradeId <= 0) {
+            return 0;
+        }
         return update("UPDATE matriculas SET id_grado = ? WHERE id_matricula = ?", gradeId, enrollmentId);
     }
 
     @Override
     public int updateStatus(int enrollmentId, String status, LocalDate withdrawalDate) {
+        if (enrollmentId <= 0) {
+            return 0;
+        }
         Date date = withdrawalDate != null ? Date.valueOf(withdrawalDate) : null;
         return update("UPDATE matriculas SET estado_matricula = ?, fecha_retiro = ? WHERE id_matricula = ?", status, date, enrollmentId);
     }

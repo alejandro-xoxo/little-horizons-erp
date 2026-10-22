@@ -3,11 +3,16 @@ package com.littlehorizons.erp.view;
 import com.littlehorizons.erp.model.ClassSchedule;
 import com.littlehorizons.erp.model.Teacher;
 import com.littlehorizons.erp.service.TeacherService.TeacherAssignmentDetail;
+import com.littlehorizons.erp.util.InputValidator;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoField;
 import java.util.List;
+import java.util.Objects;
 import java.util.Scanner;
 import java.util.stream.Collectors;
 
@@ -19,49 +24,76 @@ public class TeacherView extends BaseView {
             "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"
     );
 
+    private static final DateTimeFormatter TIME_FORMATTER = new DateTimeFormatterBuilder()
+            .appendValue(ChronoField.HOUR_OF_DAY)
+            .appendLiteral(':')
+            .appendValue(ChronoField.MINUTE_OF_HOUR, 2)
+            .optionalStart()
+            .appendLiteral(':')
+            .appendValue(ChronoField.SECOND_OF_MINUTE, 2)
+            .optionalEnd()
+            .toFormatter();
+
     public TeacherView(Scanner scanner) {
         super(scanner);
     }
 
     public void showTeachers(List<Teacher> teachers) {
+        if (teachers == null || teachers.isEmpty()) {
+            showInfo("No hay profesores registrados.");
+            return;
+        }
         String[] headers = {"ID", "Nombre", "Especialización", "Estado"};
         List<String[]> rows = teachers.stream()
+                .filter(Objects::nonNull)
                 .map(t -> new String[]{
                         String.valueOf(t.id()),
                         t.fullName(),
                         t.specialization() != null ? t.specialization() : "",
-                        t.status()
+                        t.status() != null ? t.status() : ""
                 })
                 .toList();
         printTable(headers, rows);
     }
 
     public void showWorkload(Teacher teacher, List<TeacherAssignmentDetail> workload) {
-        banner("Carga Académica: " + teacher.fullName(),
-                "ID: " + teacher.id() + " | Especialización: " + (teacher.specialization() != null ? teacher.specialization() : "N/A"));
+        banner("Carga Académica: " + (teacher != null ? teacher.fullName() : "Desconocido"),
+                "ID: " + (teacher != null ? String.valueOf(teacher.id()) : "-")
+                        + " | Especialización: " + (teacher != null && teacher.specialization() != null ? teacher.specialization() : "N/A"));
 
-        if (workload.isEmpty()) {
+        if (workload == null || workload.isEmpty()) {
             showInfo("El profesor no tiene materias asignadas en el año académico.");
             return;
         }
 
         String[] headers = {"ID Asig", "Materia", "Código", "Sección", "Horas Sem.", "Horarios"};
         List<String[]> rows = workload.stream()
+                .filter(Objects::nonNull)
                 .map(detail -> {
-                    String subjectName = detail.subject() != null ? detail.subject().name() : "Materia #" + detail.assignment().subjectId();
+                    String idAsig = detail.assignment() != null ? String.valueOf(detail.assignment().id()) : "-";
+                    String subjectName = detail.subject() != null
+                            ? detail.subject().name()
+                            : (detail.assignment() != null ? "Materia #" + detail.assignment().subjectId() : "-");
                     String subjectCode = detail.subject() != null ? detail.subject().code() : "-";
+                    String section = detail.assignment() != null && detail.assignment().section() != null
+                            ? detail.assignment().section()
+                            : "-";
                     String weeklyHours = detail.subject() != null ? String.valueOf(detail.subject().weeklyHours()) : "-";
-                    String schedulesText = detail.schedules().isEmpty()
-                            ? "(Sin horario)"
-                            : detail.schedules().stream()
-                            .map(s -> s.day() + " " + s.startTime() + "-" + s.endTime())
-                            .collect(Collectors.joining("; "));
+                    String schedulesText;
+                    if (detail.schedules() == null || detail.schedules().isEmpty()) {
+                        schedulesText = "(Sin horario)";
+                    } else {
+                        schedulesText = detail.schedules().stream()
+                                .filter(Objects::nonNull)
+                                .map(s -> s.day() + " " + s.startTime() + "-" + s.endTime())
+                                .collect(Collectors.joining("; "));
+                    }
 
                     return new String[]{
-                            String.valueOf(detail.assignment().id()),
+                            idAsig,
                             subjectName,
                             subjectCode,
-                            detail.assignment().section(),
+                            section,
                             weeklyHours,
                             schedulesText
                     };
@@ -78,7 +110,13 @@ public class TeacherView extends BaseView {
     }
 
     public String readDocumentNumber() {
-        return readRequired("Número de documento: ");
+        while (true) {
+            String doc = readRequired("Número de documento: ");
+            if (InputValidator.isValidDocument(doc)) {
+                return doc;
+            }
+            showError("Número de documento inválido (debe tener entre 5 y 20 caracteres alfanuméricos).");
+        }
     }
 
     public String readFirstName() {
@@ -98,11 +136,23 @@ public class TeacherView extends BaseView {
     }
 
     public String readEmail() {
-        return readRequired("Correo electrónico: ");
+        while (true) {
+            String email = readRequired("Correo electrónico: ");
+            if (InputValidator.isValidEmail(email)) {
+                return email;
+            }
+            showError("Correo electrónico inválido. Use el formato nombre@dominio.com.");
+        }
     }
 
     public String readPhone() {
-        return readOptional("Teléfono");
+        while (true) {
+            String phone = readOptional("Teléfono");
+            if (phone == null || InputValidator.isValidPhone(phone)) {
+                return phone;
+            }
+            showError("Teléfono inválido. Ingrese entre 7 y 15 dígitos.");
+        }
     }
 
     public String readSpecialization() {
@@ -122,7 +172,13 @@ public class TeacherView extends BaseView {
     }
 
     public String readSection() {
-        return readOptional("Sección");
+        while (true) {
+            String sec = readOptional("Sección");
+            if (sec == null || sec.trim().length() <= 10) {
+                return sec != null ? sec.trim() : null;
+            }
+            showError("La sección no puede superar los 10 caracteres.");
+        }
     }
 
     public int readAssignmentId() {
@@ -139,7 +195,7 @@ public class TeacherView extends BaseView {
         while (true) {
             String text = ask(prompt);
             try {
-                return LocalTime.parse(text);
+                return LocalTime.parse(text, TIME_FORMATTER);
             } catch (DateTimeParseException e) {
                 showError("Hora inválida. Use el formato HH:mm (por ejemplo 08:00 o 14:30).");
             }

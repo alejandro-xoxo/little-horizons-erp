@@ -46,6 +46,9 @@ public class TeacherService {
         if (start1 == null || end1 == null || start2 == null || end2 == null) {
             return false;
         }
+        if (!start1.isBefore(end1) || !start2.isBefore(end2)) {
+            return false;
+        }
         return start1.isBefore(end2) && end1.isAfter(start2);
     }
 
@@ -53,9 +56,13 @@ public class TeacherService {
         if (existingSchedules == null || day == null || start == null || end == null) {
             return false;
         }
+        String normDay = normalizeDay(day);
         for (ClassSchedule existing : existingSchedules) {
-            if (existing.day().equalsIgnoreCase(day.trim()) && overlaps(start, end, existing.startTime(), existing.endTime())) {
-                return true;
+            if (existing != null && existing.day() != null) {
+                String existingNormDay = normalizeDay(existing.day());
+                if (existingNormDay.equalsIgnoreCase(normDay) && overlaps(start, end, existing.startTime(), existing.endTime())) {
+                    return true;
+                }
             }
         }
         return false;
@@ -113,13 +120,16 @@ public class TeacherService {
         if (!InputValidator.isNotBlank(teacher.lastName())) {
             throw new BusinessException("El primer apellido es obligatorio.");
         }
-        if (!InputValidator.isValidDocument(teacher.documentNumber())) {
+        String docNumber = teacher.documentNumber() != null ? teacher.documentNumber().trim() : null;
+        if (!InputValidator.isValidDocument(docNumber)) {
             throw new BusinessException("El formato del número de documento no es válido.");
         }
-        if (!InputValidator.isValidEmail(teacher.email())) {
+        String email = teacher.email() != null ? teacher.email().trim() : null;
+        if (!InputValidator.isValidEmail(email)) {
             throw new BusinessException("El formato del correo electrónico no es válido.");
         }
-        if (teacher.phone() != null && !teacher.phone().isBlank() && !InputValidator.isValidPhone(teacher.phone())) {
+        String phone = teacher.phone() != null ? teacher.phone().trim() : null;
+        if (phone != null && !phone.isBlank() && !InputValidator.isValidPhone(phone)) {
             throw new BusinessException("El formato del teléfono no es válido.");
         }
         if (teacher.documentType() == null || (!teacher.documentType().equals("CC") &&
@@ -129,25 +139,28 @@ public class TeacherService {
         if (teacher.hireDate() == null) {
             throw new BusinessException("La fecha de contratación es obligatoria.");
         }
-        if (teacherDao.findByDocument(teacher.documentNumber()).isPresent()) {
+        if (teacherDao.findByDocument(docNumber).isPresent()) {
             throw new BusinessException("Ya existe un profesor con ese número de documento.");
         }
-        if (teacherDao.findByEmail(teacher.email()).isPresent()) {
+        if (teacherDao.findByEmail(email).isPresent()) {
             throw new BusinessException("Ya existe un profesor con ese correo electrónico.");
         }
 
         String status = (teacher.status() == null || teacher.status().isBlank()) ? "Activo" : teacher.status();
+        if (!status.equals("Activo") && !status.equals("Inactivo") && !status.equals("Licencia")) {
+            throw new BusinessException("Estado inválido. Debe ser Activo, Inactivo o Licencia.");
+        }
         Teacher toInsert = new Teacher(
                 0,
                 teacher.documentType(),
-                teacher.documentNumber(),
+                docNumber,
                 teacher.firstName().trim(),
-                teacher.middleName() != null ? teacher.middleName().trim() : null,
+                InputValidator.isNotBlank(teacher.middleName()) ? teacher.middleName().trim() : null,
                 teacher.lastName().trim(),
-                teacher.secondLastName() != null ? teacher.secondLastName().trim() : null,
-                teacher.email().trim(),
-                teacher.phone() != null ? teacher.phone().trim() : null,
-                teacher.specialization() != null ? teacher.specialization().trim() : null,
+                InputValidator.isNotBlank(teacher.secondLastName()) ? teacher.secondLastName().trim() : null,
+                email,
+                InputValidator.isNotBlank(phone) ? phone : null,
+                InputValidator.isNotBlank(teacher.specialization()) ? teacher.specialization().trim() : null,
                 teacher.hireDate(),
                 status
         );
@@ -178,14 +191,24 @@ public class TeacherService {
     }
 
     public Optional<Teacher> findTeacherById(int id) {
+        if (id <= 0) {
+            return Optional.empty();
+        }
         return teacherDao.findById(id);
+    }
+
+    public Optional<TeachingAssignment> findAssignmentById(int id) {
+        if (id <= 0) {
+            return Optional.empty();
+        }
+        return assignmentDao.findById(id);
     }
 
     public void changeTeacherStatus(int teacherId, String newStatus) {
         if (newStatus == null || (!newStatus.equals("Activo") && !newStatus.equals("Inactivo") && !newStatus.equals("Licencia"))) {
             throw new BusinessException("Estado inválido. Debe ser Activo, Inactivo o Licencia.");
         }
-        teacherDao.findById(teacherId)
+        findTeacherById(teacherId)
                 .orElseThrow(() -> new BusinessException("Profesor no encontrado."));
         teacherDao.updateStatus(teacherId, newStatus);
     }
@@ -195,6 +218,16 @@ public class TeacherService {
     }
 
     public TeachingAssignment assignSubject(int teacherId, int subjectId, String section, int year) {
+        if (teacherId <= 0) {
+            throw new BusinessException("Profesor no encontrado.");
+        }
+        if (subjectId <= 0) {
+            throw new BusinessException("Materia no encontrada.");
+        }
+        if (year <= 0) {
+            throw new BusinessException("El año académico debe ser mayor que cero.");
+        }
+
         Teacher teacher = teacherDao.findById(teacherId)
                 .orElseThrow(() -> new BusinessException("Profesor no encontrado."));
 
@@ -210,6 +243,9 @@ public class TeacherService {
         }
 
         String sec = (section == null || section.isBlank()) ? "A" : section.trim().toUpperCase();
+        if (sec.length() > 10) {
+            throw new BusinessException("La sección no puede superar los 10 caracteres.");
+        }
 
         if (assignmentDao.exists(teacherId, subjectId, year, sec)) {
             throw new BusinessException("El profesor ya tiene asignada esta materia en la sección " + sec + " para el año " + year + ".");
@@ -221,6 +257,10 @@ public class TeacherService {
     }
 
     public void deleteAssignment(int assignmentId) {
+        if (assignmentId <= 0) {
+            throw new BusinessException("Asignación no encontrada.");
+        }
+
         assignmentDao.findById(assignmentId)
                 .orElseThrow(() -> new BusinessException("Asignación no encontrada."));
 
@@ -232,6 +272,10 @@ public class TeacherService {
     }
 
     public ClassSchedule registerSchedule(int assignmentId, String day, LocalTime startTime, LocalTime endTime) {
+        if (assignmentId <= 0) {
+            throw new BusinessException("Asignación no encontrada.");
+        }
+
         TeachingAssignment assignment = assignmentDao.findById(assignmentId)
                 .orElseThrow(() -> new BusinessException("Asignación no encontrada."));
 
@@ -256,6 +300,9 @@ public class TeacherService {
     }
 
     public void deleteSchedule(int scheduleId) {
+        if (scheduleId <= 0) {
+            return;
+        }
         assignmentDao.deleteSchedule(scheduleId);
     }
 
@@ -264,15 +311,26 @@ public class TeacherService {
     }
 
     public List<TeacherAssignmentDetail> getTeacherWorkload(int teacherId, int year) {
+        if (teacherId <= 0) {
+            throw new BusinessException("Profesor no encontrado.");
+        }
+        if (year <= 0) {
+            throw new BusinessException("El año académico debe ser mayor que cero.");
+        }
+
         teacherDao.findById(teacherId)
                 .orElseThrow(() -> new BusinessException("Profesor no encontrado."));
 
         List<TeachingAssignment> assignments = assignmentDao.findByTeacher(teacherId, year);
         List<TeacherAssignmentDetail> details = new ArrayList<>();
-        for (TeachingAssignment a : assignments) {
-            Subject s = subjectDao.findById(a.subjectId()).orElse(null);
-            List<ClassSchedule> schedules = assignmentDao.findSchedulesByAssignment(a.id());
-            details.add(new TeacherAssignmentDetail(a, s, schedules));
+        if (assignments != null) {
+            for (TeachingAssignment a : assignments) {
+                if (a != null) {
+                    Subject s = subjectDao.findById(a.subjectId()).orElse(null);
+                    List<ClassSchedule> schedules = assignmentDao.findSchedulesByAssignment(a.id());
+                    details.add(new TeacherAssignmentDetail(a, s, schedules != null ? schedules : List.of()));
+                }
+            }
         }
         return details;
     }
