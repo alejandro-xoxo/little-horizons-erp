@@ -34,7 +34,7 @@ public interface AttendanceDao {
      * Estudiantes que superan el umbral de ausencias en una semana (días distintos con 'Ausente'
      * agrupados por YEARWEEK(fecha_asistencia, 3) mayores a {@code threshold}).
      */
-    List<WeeklyAbsenceAlert> findStudentsAboveThreshold(int threshold);
+    List<WeeklyAbsenceAlert> findStudentsAboveThreshold(int threshold, int year);
 
     /** Total de inasistencias (registros con 'Ausente') de un estudiante en un año. */
     int countTotalAbsences(int studentId, int year);

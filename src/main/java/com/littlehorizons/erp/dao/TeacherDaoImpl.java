@@ -51,20 +51,29 @@ public class TeacherDaoImpl extends BaseJdbcDao implements TeacherDao {
 
     @Override
     public Optional<Teacher> findById(int id) {
+        if (id <= 0) {
+            return Optional.empty();
+        }
         String sql = "SELECT * FROM profesores WHERE id_profesor = ?";
         return queryOne(sql, this::map, id);
     }
 
     @Override
     public Optional<Teacher> findByDocument(String documentNumber) {
+        if (documentNumber == null || documentNumber.isBlank()) {
+            return Optional.empty();
+        }
         String sql = "SELECT * FROM profesores WHERE numero_documento = ?";
-        return queryOne(sql, this::map, documentNumber);
+        return queryOne(sql, this::map, documentNumber.trim());
     }
 
     @Override
     public Optional<Teacher> findByEmail(String email) {
-        String sql = "SELECT * FROM profesores WHERE correo_electronico = ?";
-        return queryOne(sql, this::map, email);
+        if (email == null || email.isBlank()) {
+            return Optional.empty();
+        }
+        String sql = "SELECT * FROM profesores WHERE LOWER(correo_electronico) = LOWER(?)";
+        return queryOne(sql, this::map, email.trim());
     }
 
     @Override
@@ -87,7 +96,15 @@ public class TeacherDaoImpl extends BaseJdbcDao implements TeacherDao {
 
     private Teacher map(ResultSet rs) throws SQLException {
         java.sql.Date date = rs.getDate("fecha_contratacion");
-        LocalDate hireDate = date != null ? date.toLocalDate() : null;
+        LocalDate hireDate = null;
+        if (date != null) {
+            hireDate = date.toLocalDate();
+        } else {
+            try {
+                hireDate = rs.getObject("fecha_contratacion", LocalDate.class);
+            } catch (Exception ignored) {
+            }
+        }
         return new Teacher(
                 rs.getInt("id_profesor"),
                 rs.getString("tipo_documento"),

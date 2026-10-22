@@ -6,6 +6,7 @@ import com.littlehorizons.erp.util.CustomExceptions.BusinessException;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -33,6 +34,10 @@ class StudentRulesTest {
         // Born 2020-02-15, academic year 2026 (cutoff 2026-03-31) -> 6 years old
         LocalDate birthDate2 = LocalDate.of(2020, 2, 15);
         assertEquals(6, StudentRules.calculateAgeAtCutoff(birthDate2, 2026));
+
+        assertEquals(-1, StudentRules.calculateAgeAtCutoff(null, 2026));
+        assertEquals(-1, StudentRules.calculateAgeAtCutoff(birthDate, 0));
+        assertEquals(-1, StudentRules.calculateAgeAtCutoff(birthDate, -2026));
     }
 
     @Test
@@ -60,6 +65,14 @@ class StudentRulesTest {
 
         // Null birth date -> false
         assertFalse(StudentRules.isAgeConsistent(null, numericLevel, academicYear));
+
+        // Invalid academic year / numeric level
+        assertFalse(StudentRules.isAgeConsistent(LocalDate.of(2020, 3, 1), -1, academicYear));
+        assertFalse(StudentRules.isAgeConsistent(LocalDate.of(2020, 3, 1), 12, academicYear));
+        assertFalse(StudentRules.isAgeConsistent(LocalDate.of(2020, 3, 1), numericLevel, 0));
+
+        // Birth date after cutoff
+        assertFalse(StudentRules.isAgeConsistent(LocalDate.of(2026, 4, 1), numericLevel, 2026));
     }
 
     @Test
@@ -97,6 +110,12 @@ class StudentRulesTest {
         // Unknown status
         assertThrows(BusinessException.class, () ->
                 StudentRules.validateStatusTransition("Activo", "Invalido", 5));
+        assertThrows(BusinessException.class, () ->
+                StudentRules.validateStatusTransition("Invalido", "Activo", 5));
+        assertThrows(BusinessException.class, () ->
+                StudentRules.validateStatusTransition(null, "Activo", 5));
+        assertThrows(BusinessException.class, () ->
+                StudentRules.validateStatusTransition("Activo", null, 5));
     }
 
     @Test
@@ -104,8 +123,13 @@ class StudentRulesTest {
         Guardian g1 = new Guardian(1, "CC", "12345678", "Juan", null, "Perez", null, "Padre", "3001234567", null, null, null, null, true);
         Guardian g2 = new Guardian(2, "CC", "87654321", "Maria", null, "Gomez", null, "Madre", "3007654321", null, null, null, null, true);
 
-        // Empty list -> throws
+        // Empty / null list -> throws
         assertThrows(BusinessException.class, () -> StudentRules.validateGuardians(List.of()));
+        assertThrows(BusinessException.class, () -> StudentRules.validateGuardians(null));
+
+        // Null link or null guardian -> throws
+        assertThrows(BusinessException.class, () -> StudentRules.validateGuardians(Collections.singletonList(null)));
+        assertThrows(BusinessException.class, () -> StudentRules.validateGuardians(List.of(new GuardianLink(null, true, true))));
 
         // No primary -> throws
         assertThrows(BusinessException.class, () ->
@@ -134,9 +158,11 @@ class StudentRulesTest {
         assertDoesNotThrow(() -> StudentRules.validatePeriod("II"));
         assertDoesNotThrow(() -> StudentRules.validatePeriod("III"));
         assertDoesNotThrow(() -> StudentRules.validatePeriod("IV"));
+        assertDoesNotThrow(() -> StudentRules.validatePeriod(" I "));
 
         assertThrows(BusinessException.class, () -> StudentRules.validatePeriod("Final"));
         assertThrows(BusinessException.class, () -> StudentRules.validatePeriod("V"));
+        assertThrows(BusinessException.class, () -> StudentRules.validatePeriod(""));
         assertThrows(BusinessException.class, () -> StudentRules.validatePeriod(null));
     }
 
@@ -146,5 +172,6 @@ class StudentRulesTest {
         assertThrows(BusinessException.class, () -> StudentRules.validateCanEnrollSubjects("Suspendido"));
         assertThrows(BusinessException.class, () -> StudentRules.validateCanEnrollSubjects("Retirado"));
         assertThrows(BusinessException.class, () -> StudentRules.validateCanEnrollSubjects("Graduado"));
+        assertThrows(BusinessException.class, () -> StudentRules.validateCanEnrollSubjects(null));
     }
 }

@@ -2,6 +2,7 @@ package com.littlehorizons.erp.dao;
 
 import com.littlehorizons.erp.model.SubjectEnrollment;
 
+import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
@@ -19,12 +20,15 @@ public class SubjectEnrollmentDaoImpl extends BaseJdbcDao implements SubjectEnro
                 enrollment.year(),
                 enrollment.period(),
                 enrollment.section(),
-                enrollment.enrollmentDate(),
+                enrollment.enrollmentDate() != null ? Date.valueOf(enrollment.enrollmentDate()) : null,
                 enrollment.status());
     }
 
     @Override
     public void insertAll(List<SubjectEnrollment> enrollments) {
+        if (enrollments == null || enrollments.isEmpty()) {
+            return;
+        }
         inTransaction(connection -> {
             String sql = "INSERT INTO inscripciones_materia (id_estudiante, id_materia, año_academico, periodo_academico, seccion, fecha_inscripcion, estado) " +
                     "VALUES (?, ?, ?, ?, ?, ?, ?)";
@@ -35,7 +39,7 @@ public class SubjectEnrollmentDaoImpl extends BaseJdbcDao implements SubjectEnro
                         enrollment.year(),
                         enrollment.period(),
                         enrollment.section(),
-                        enrollment.enrollmentDate(),
+                        enrollment.enrollmentDate() != null ? Date.valueOf(enrollment.enrollmentDate()) : null,
                         enrollment.status());
             }
             return null;
@@ -44,12 +48,18 @@ public class SubjectEnrollmentDaoImpl extends BaseJdbcDao implements SubjectEnro
 
     @Override
     public List<SubjectEnrollment> findByStudent(int studentId, int year, String period) {
+        if (studentId <= 0 || year <= 0) {
+            return List.of();
+        }
         String sql = "SELECT * FROM inscripciones_materia WHERE id_estudiante = ? AND año_academico = ? AND periodo_academico = ? ORDER BY id_materia";
         return query(sql, this::map, studentId, year, period);
     }
 
     @Override
     public List<SubjectEnrollment> findByCourse(int subjectId, int year, String period, String section) {
+        if (subjectId <= 0 || year <= 0) {
+            return List.of();
+        }
         if (section == null || section.isBlank()) {
             String sql = "SELECT * FROM inscripciones_materia WHERE id_materia = ? AND año_academico = ? AND periodo_academico = ? AND estado = 'Activa' ORDER BY id_estudiante";
             return query(sql, this::map, subjectId, year, period);
@@ -60,24 +70,33 @@ public class SubjectEnrollmentDaoImpl extends BaseJdbcDao implements SubjectEnro
 
     @Override
     public boolean exists(int studentId, int subjectId, int year, String period) {
+        if (studentId <= 0 || subjectId <= 0 || year <= 0) {
+            return false;
+        }
         String sql = "SELECT 1 FROM inscripciones_materia WHERE id_estudiante = ? AND id_materia = ? AND año_academico = ? AND periodo_academico = ? LIMIT 1";
         return queryOne(sql, rs -> true, studentId, subjectId, year, period).orElse(false);
     }
 
     @Override
     public boolean existsInYear(int studentId, int subjectId, int year) {
+        if (studentId <= 0 || subjectId <= 0 || year <= 0) {
+            return false;
+        }
         String sql = "SELECT 1 FROM inscripciones_materia WHERE id_estudiante = ? AND id_materia = ? AND año_academico = ? AND periodo_academico IN ('I', 'II', 'III', 'IV') LIMIT 1";
         return queryOne(sql, rs -> true, studentId, subjectId, year).orElse(false);
     }
 
     @Override
     public int updateStatus(int enrollmentId, String status) {
+        if (enrollmentId <= 0) {
+            return 0;
+        }
         String sql = "UPDATE inscripciones_materia SET estado = ? WHERE id_inscripcion = ?";
         return update(sql, status, enrollmentId);
     }
 
     private SubjectEnrollment map(ResultSet rs) throws SQLException {
-        java.sql.Date date = rs.getDate("fecha_inscripcion");
+        Date date = rs.getDate("fecha_inscripcion");
         LocalDate enrollmentDate = date != null ? date.toLocalDate() : null;
         return new SubjectEnrollment(
                 rs.getInt("id_inscripcion"),

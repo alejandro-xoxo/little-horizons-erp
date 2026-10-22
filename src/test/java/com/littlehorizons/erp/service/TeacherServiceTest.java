@@ -78,6 +78,23 @@ class TeacherServiceTest {
         }
 
         @Test
+        @DisplayName("Traslape: horarios invertidos o nulos deben retornar false")
+        void testOverlapInvertedOrNull() {
+            LocalTime s = LocalTime.of(8, 0);
+            LocalTime e = LocalTime.of(10, 0);
+
+            assertFalse(TeacherService.overlaps(null, e, s, e));
+            assertFalse(TeacherService.overlaps(s, null, s, e));
+            assertFalse(TeacherService.overlaps(s, e, null, e));
+            assertFalse(TeacherService.overlaps(s, e, s, null));
+
+            // Horario invertido (inicio posterior o igual a fin)
+            assertFalse(TeacherService.overlaps(LocalTime.of(10, 0), LocalTime.of(8, 0), s, e));
+            assertFalse(TeacherService.overlaps(LocalTime.of(8, 0), LocalTime.of(8, 0), s, e));
+            assertFalse(TeacherService.overlaps(s, e, LocalTime.of(10, 0), LocalTime.of(8, 0)));
+        }
+
+        @Test
         @DisplayName("Conflicto con lista de horarios existentes")
         void testHasScheduleConflict() {
             List<ClassSchedule> schedules = List.of(
@@ -94,6 +111,31 @@ class TeacherServiceTest {
         }
 
         @Test
+        @DisplayName("Conflicto con acentos: 'miercoles' vs 'Miércoles' y 'sabado' vs 'Sábado'")
+        void testHasScheduleConflictAccentInsensitive() {
+            List<ClassSchedule> schedules = List.of(
+                    new ClassSchedule(1, 10, "Miércoles", LocalTime.of(8, 0), LocalTime.of(10, 0)),
+                    new ClassSchedule(2, 10, "Sábado", LocalTime.of(14, 0), LocalTime.of(16, 0))
+            );
+
+            // Sin acento debe detectar conflicto con el horario que tiene acento
+            assertTrue(TeacherService.hasScheduleConflict(schedules, "miercoles", LocalTime.of(9, 0), LocalTime.of(11, 0)));
+            assertTrue(TeacherService.hasScheduleConflict(schedules, "sabado", LocalTime.of(15, 0), LocalTime.of(17, 0)));
+        }
+
+        @Test
+        @DisplayName("Conflicto con nulos o lista vacía")
+        void testHasScheduleConflictNulls() {
+            assertFalse(TeacherService.hasScheduleConflict(null, "Lunes", LocalTime.of(8, 0), LocalTime.of(10, 0)));
+            assertFalse(TeacherService.hasScheduleConflict(List.of(), "Lunes", LocalTime.of(8, 0), LocalTime.of(10, 0)));
+            assertFalse(TeacherService.hasScheduleConflict(List.of(), null, LocalTime.of(8, 0), LocalTime.of(10, 0)));
+
+            List<ClassSchedule> withNullDay = new ArrayList<>();
+            withNullDay.add(new ClassSchedule(1, 10, null, LocalTime.of(8, 0), LocalTime.of(10, 0)));
+            assertFalse(TeacherService.hasScheduleConflict(withNullDay, "Lunes", LocalTime.of(8, 0), LocalTime.of(10, 0)));
+        }
+
+        @Test
         @DisplayName("Validación de días y franjas horarias")
         void testValidDaysAndTimeWindows() {
             assertTrue(TeacherService.isValidDay("Lunes"));
@@ -101,8 +143,18 @@ class TeacherServiceTest {
             assertTrue(TeacherService.isValidDay("Miércoles"));
             assertTrue(TeacherService.isValidDay("miercoles"));
             assertTrue(TeacherService.isValidDay("Sábado"));
+            assertTrue(TeacherService.isValidDay("sabado"));
             assertFalse(TeacherService.isValidDay("Domingo"));
             assertFalse(TeacherService.isValidDay("Invalido"));
+            assertFalse(TeacherService.isValidDay(null));
+            assertFalse(TeacherService.isValidDay("   "));
+
+            // Normalización
+            assertEquals("Miércoles", TeacherService.normalizeDay("miercoles"));
+            assertEquals("Miércoles", TeacherService.normalizeDay("Miércoles"));
+            assertEquals("Sábado", TeacherService.normalizeDay("sabado"));
+            assertEquals("Lunes", TeacherService.normalizeDay("lunes"));
+            assertNull(TeacherService.normalizeDay(null));
 
             // Franjas horarias válidas: 06:00 a 18:00
             assertTrue(TeacherService.isValidTimeWindow(LocalTime.of(6, 0), LocalTime.of(18, 0)));
@@ -112,6 +164,8 @@ class TeacherServiceTest {
             assertFalse(TeacherService.isValidTimeWindow(LocalTime.of(8, 0), LocalTime.of(18, 1)));
             assertFalse(TeacherService.isValidTimeWindow(LocalTime.of(10, 0), LocalTime.of(10, 0)));
             assertFalse(TeacherService.isValidTimeWindow(LocalTime.of(12, 0), LocalTime.of(10, 0)));
+            assertFalse(TeacherService.isValidTimeWindow(null, LocalTime.of(10, 0)));
+            assertFalse(TeacherService.isValidTimeWindow(LocalTime.of(10, 0), null));
         }
     }
 
@@ -143,6 +197,58 @@ class TeacherServiceTest {
             assertEquals(1, created.id());
             assertEquals("Activo", created.status());
             assertEquals("Carlos", created.firstName());
+        }
+
+        @Test
+        @DisplayName("Registrar profesor: campos opcionales con espacios se guardan como null")
+        void testRegisterTeacherOptionalFieldsEmptyAsNull() {
+            Teacher t = new Teacher(0, "CC", "12345678", "Carlos", "   ", "Gomez", "",
+                    "carlos.gomez@colegio.edu.co", "   ", "  ", LocalDate.of(2025, 1, 15), null);
+
+            Teacher created = teacherService.registerTeacher(t);
+            assertNotNull(created);
+            assertNull(created.middleName());
+            assertNull(created.secondLastName());
+            assertNull(created.phone());
+            assertNull(created.specialization());
+            assertEquals("Activo", created.status());
+        }
+
+        @Test
+        @DisplayName("Registrar profesor: validaciones de entrada obligatorias y formatos")
+        void testRegisterTeacherValidations() {
+            // Null teacher
+            assertThrows(BusinessException.class, () -> teacherService.registerTeacher(null));
+
+            // Nombre vacío
+            assertThrows(BusinessException.class, () -> teacherService.registerTeacher(
+                    new Teacher(0, "CC", "12345678", "  ", null, "Gomez", null, "carlos@colegio.edu.co", null, null, LocalDate.now(), "Activo")));
+
+            // Apellido vacío
+            assertThrows(BusinessException.class, () -> teacherService.registerTeacher(
+                    new Teacher(0, "CC", "12345678", "Carlos", null, "", null, "carlos@colegio.edu.co", null, null, LocalDate.now(), "Activo")));
+
+            // Documento inválido (letras/números < 5 o > 20 o caracteres raros)
+            assertThrows(BusinessException.class, () -> teacherService.registerTeacher(
+                    new Teacher(0, "CC", "123", "Carlos", null, "Gomez", null, "carlos@colegio.edu.co", null, null, LocalDate.now(), "Activo")));
+            assertThrows(BusinessException.class, () -> teacherService.registerTeacher(
+                    new Teacher(0, "CC", "12345-678", "Carlos", null, "Gomez", null, "carlos@colegio.edu.co", null, null, LocalDate.now(), "Activo")));
+
+            // Correo inválido
+            assertThrows(BusinessException.class, () -> teacherService.registerTeacher(
+                    new Teacher(0, "CC", "12345678", "Carlos", null, "Gomez", null, "sin-arroba", null, null, LocalDate.now(), "Activo")));
+
+            // Teléfono inválido
+            assertThrows(BusinessException.class, () -> teacherService.registerTeacher(
+                    new Teacher(0, "CC", "12345678", "Carlos", null, "Gomez", null, "carlos@colegio.edu.co", "abc", null, LocalDate.now(), "Activo")));
+
+            // Tipo de documento inválido
+            assertThrows(BusinessException.class, () -> teacherService.registerTeacher(
+                    new Teacher(0, "TI", "12345678", "Carlos", null, "Gomez", null, "carlos@colegio.edu.co", null, null, LocalDate.now(), "Activo")));
+
+            // Fecha de contratación nula
+            assertThrows(BusinessException.class, () -> teacherService.registerTeacher(
+                    new Teacher(0, "CC", "12345678", "Carlos", null, "Gomez", null, "carlos@colegio.edu.co", null, null, null, "Activo")));
         }
 
         @Test
@@ -205,6 +311,34 @@ class TeacherServiceTest {
         }
 
         @Test
+        @DisplayName("Asignación: valida IDs inexistentes, materia inactiva, sección > 10 caracteres y año <= 0")
+        void testAssignSubjectEdgeCases() {
+            Teacher teacher = teacherService.registerTeacher(new Teacher(0, "CC", "11111111", "Juan", null, "Perez", null,
+                    "juan@colegio.edu.co", null, "Ciencias", LocalDate.of(2025, 1, 1), "Activo"));
+            subjectDao.insert(new Subject(1, "CIEN-6", "Ciencias", "Desc", 7, 4, true));
+            subjectDao.insert(new Subject(2, "INAC-6", "Inactiva", "Desc", 7, 2, false));
+
+            // Profesor inexistente o negativo
+            assertThrows(BusinessException.class, () -> teacherService.assignSubject(999, 1, "A"));
+            assertThrows(BusinessException.class, () -> teacherService.assignSubject(-1, 1, "A"));
+
+            // Materia inexistente o negativa
+            assertThrows(BusinessException.class, () -> teacherService.assignSubject(teacher.id(), 999, "A"));
+            assertThrows(BusinessException.class, () -> teacherService.assignSubject(teacher.id(), -5, "A"));
+
+            // Materia inactiva
+            BusinessException exInactive = assertThrows(BusinessException.class, () -> teacherService.assignSubject(teacher.id(), 2, "A"));
+            assertTrue(exInactive.getMessage().contains("activa"));
+
+            // Sección > 10 caracteres
+            assertThrows(BusinessException.class, () -> teacherService.assignSubject(teacher.id(), 1, "SECCION_DEMASIADO_LARGA"));
+
+            // Año <= 0
+            assertThrows(BusinessException.class, () -> teacherService.assignSubject(teacher.id(), 1, "A", -2026));
+            assertThrows(BusinessException.class, () -> teacherService.assignSubject(teacher.id(), 1, "A", 0));
+        }
+
+        @Test
         @DisplayName("Asignación con notas registradas no se puede eliminar")
         void testCannotDeleteAssignmentWithGrades() {
             Teacher teacher = teacherService.registerTeacher(new Teacher(0, "CC", "11111111", "Juan", null, "Perez", null,
@@ -221,6 +355,10 @@ class TeacherServiceTest {
 
             BusinessException ex = assertThrows(BusinessException.class, () -> teacherService.deleteAssignment(a2.id()));
             assertTrue(ex.getMessage().contains("notas registradas"));
+
+            // Asignación inexistente o negativa
+            assertThrows(BusinessException.class, () -> teacherService.deleteAssignment(999));
+            assertThrows(BusinessException.class, () -> teacherService.deleteAssignment(-1));
         }
 
         @Test
@@ -255,12 +393,18 @@ class TeacherServiceTest {
         }
 
         @Test
-        @DisplayName("Horarios: rechaza días u horas fuera del rango válido")
+        @DisplayName("Horarios: rechaza días u horas fuera del rango válido y asignaciones inexistentes")
         void testScheduleInvalidDayOrTime() {
             Teacher teacher = teacherService.registerTeacher(new Teacher(0, "CC", "11111111", "Juan", null, "Perez", null,
                     "juan@colegio.edu.co", null, "Ciencias", LocalDate.of(2025, 1, 1), "Activo"));
             subjectDao.insert(new Subject(1, "CIEN-6", "Ciencias", "Desc", 7, 4, true));
             TeachingAssignment asig = teacherService.assignSubject(teacher.id(), 1, "A");
+
+            // Asignación inexistente o negativa
+            assertThrows(BusinessException.class, () ->
+                    teacherService.registerSchedule(999, "Lunes", LocalTime.of(8, 0), LocalTime.of(10, 0)));
+            assertThrows(BusinessException.class, () ->
+                    teacherService.registerSchedule(-5, "Lunes", LocalTime.of(8, 0), LocalTime.of(10, 0)));
 
             // Domingo
             assertThrows(BusinessException.class, () ->
@@ -292,6 +436,60 @@ class TeacherServiceTest {
             assertEquals("Inactivo", teacherDao.findById(teacher.id()).orElseThrow().status());
 
             assertThrows(BusinessException.class, () -> teacherService.changeTeacherStatus(teacher.id(), "Retirado"));
+            assertThrows(BusinessException.class, () -> teacherService.changeTeacherStatus(teacher.id(), null));
+            assertThrows(BusinessException.class, () -> teacherService.changeTeacherStatus(999, "Activo"));
+            assertThrows(BusinessException.class, () -> teacherService.changeTeacherStatus(-1, "Activo"));
+        }
+
+        @Test
+        @DisplayName("Carga académica: lista materias asignadas y horarios")
+        void testGetTeacherWorkload() {
+            Teacher teacher = teacherService.registerTeacher(new Teacher(0, "CC", "11111111", "Juan", null, "Perez", null,
+                    "juan@colegio.edu.co", null, "Ciencias", LocalDate.of(2025, 1, 1), "Activo"));
+            subjectDao.insert(new Subject(1, "CIEN-6", "Ciencias", "Desc", 7, 4, true));
+
+            // Sin materias asignadas
+            List<TeacherService.TeacherAssignmentDetail> emptyWorkload = teacherService.getTeacherWorkload(teacher.id());
+            assertTrue(emptyWorkload.isEmpty());
+
+            // Asignar materia y horario
+            TeachingAssignment asig = teacherService.assignSubject(teacher.id(), 1, "A");
+            teacherService.registerSchedule(asig.id(), "Lunes", LocalTime.of(8, 0), LocalTime.of(10, 0));
+
+            List<TeacherService.TeacherAssignmentDetail> workload = teacherService.getTeacherWorkload(teacher.id());
+            assertEquals(1, workload.size());
+            assertEquals("Ciencias", workload.get(0).subject().name());
+            assertEquals(1, workload.get(0).schedules().size());
+            assertEquals("Lunes", workload.get(0).schedules().get(0).day());
+
+            // Profesor inexistente o ID negativo
+            assertThrows(BusinessException.class, () -> teacherService.getTeacherWorkload(999));
+            assertThrows(BusinessException.class, () -> teacherService.getTeacherWorkload(-1));
+            assertThrows(BusinessException.class, () -> teacherService.getTeacherWorkload(teacher.id(), 0));
+        }
+
+        @Test
+        @DisplayName("Consultas por ID: Optional vacío ante ID negativo o inexistente")
+        void testFindByIdNegativeOrNonexistent() {
+            assertTrue(teacherService.findTeacherById(-1).isEmpty());
+            assertTrue(teacherService.findTeacherById(0).isEmpty());
+            assertTrue(teacherService.findTeacherById(999).isEmpty());
+
+            assertTrue(teacherService.findAssignmentById(-1).isEmpty());
+            assertTrue(teacherService.findAssignmentById(0).isEmpty());
+            assertTrue(teacherService.findAssignmentById(999).isEmpty());
+        }
+
+        @Test
+        @DisplayName("Listar activos y todos")
+        void testListActiveAndAll() {
+            teacherService.registerTeacher(new Teacher(0, "CC", "11111111", "Juan", null, "Perez", null,
+                    "juan@colegio.edu.co", null, "Ciencias", LocalDate.of(2025, 1, 1), "Activo"));
+            Teacher inact = teacherService.registerTeacher(new Teacher(0, "CC", "22222222", "Pedro", null, "Lopez", null,
+                    "pedro@colegio.edu.co", null, "Artes", LocalDate.of(2025, 1, 1), "Inactivo"));
+
+            assertEquals(1, teacherService.listActiveTeachers().size());
+            assertEquals(2, teacherService.listAllTeachers().size());
         }
     }
 

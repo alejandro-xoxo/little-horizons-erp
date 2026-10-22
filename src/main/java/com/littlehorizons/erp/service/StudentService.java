@@ -20,8 +20,11 @@ import com.littlehorizons.erp.util.InputValidator;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public class StudentService {
 
@@ -60,35 +63,28 @@ public class StudentService {
     }
 
     public int registerStudent(Student student, List<GuardianLink> guardians, int gradeId, String notes) {
-        if (!InputValidator.isNotBlank(student.firstName())) {
-            throw new BusinessException("El primer nombre del estudiante es obligatorio.");
-        }
-        if (!InputValidator.isNotBlank(student.lastName())) {
-            throw new BusinessException("El primer apellido del estudiante es obligatorio.");
-        }
-        if (!InputValidator.isValidDocument(student.documentNumber())) {
-            throw new BusinessException("El documento del estudiante no es válido.");
-        }
-        StudentRules.validateBirthDate(student.birthDate());
+        validateStudentData(student);
 
         if (studentDao.findByDocument(student.documentNumber()).isPresent()) {
             throw new BusinessException("Ya existe un estudiante con ese número de documento.");
         }
 
         StudentRules.validateGuardians(guardians);
+        Set<String> seenDocs = new HashSet<>();
         for (GuardianLink link : guardians) {
             Guardian g = link.guardian();
-            if (!InputValidator.isNotBlank(g.firstName())) {
-                throw new BusinessException("El nombre del acudiente es obligatorio.");
+            validateGuardianData(g);
+            if (!seenDocs.add(g.documentNumber())) {
+                throw new BusinessException("No se puede registrar el mismo acudiente más de una vez.");
             }
-            if (!InputValidator.isNotBlank(g.lastName())) {
-                throw new BusinessException("El apellido del acudiente es obligatorio.");
-            }
-            if (!InputValidator.isValidDocument(g.documentNumber())) {
-                throw new BusinessException("El documento del acudiente no es válido.");
-            }
-            if (!InputValidator.isNotBlank(g.phone())) {
-                throw new BusinessException("El teléfono principal del acudiente es obligatorio.");
+            if (g.id() <= 0) {
+                if (guardianDao.findByDocument(g.documentNumber()).isPresent()) {
+                    throw new BusinessException("Ya existe un acudiente con ese número de documento.");
+                }
+            } else {
+                if (guardianDao.findById(g.id()).isEmpty()) {
+                    throw new BusinessException("El acudiente no existe.");
+                }
             }
         }
 
@@ -113,16 +109,11 @@ public class StudentService {
     }
 
     public int updateStudent(Student student) {
-        if (!InputValidator.isNotBlank(student.firstName())) {
-            throw new BusinessException("El primer nombre del estudiante es obligatorio.");
+        validateStudentData(student);
+
+        if (studentDao.findById(student.id()).isEmpty()) {
+            throw new BusinessException("Estudiante no encontrado.");
         }
-        if (!InputValidator.isNotBlank(student.lastName())) {
-            throw new BusinessException("El primer apellido del estudiante es obligatorio.");
-        }
-        if (!InputValidator.isValidDocument(student.documentNumber())) {
-            throw new BusinessException("El documento del estudiante no es válido.");
-        }
-        StudentRules.validateBirthDate(student.birthDate());
 
         Optional<Student> existing = studentDao.findByDocument(student.documentNumber());
         if (existing.isPresent() && existing.get().id() != student.id()) {
@@ -133,15 +124,30 @@ public class StudentService {
     }
 
     public Student getStudent(int id) {
+        if (id <= 0) {
+            throw new BusinessException("El ID del estudiante debe ser mayor que cero.");
+        }
         return studentDao.findById(id)
                 .orElseThrow(() -> new BusinessException("Estudiante no encontrado."));
     }
 
     public List<Student> searchStudents(String text) {
-        return studentDao.search(text);
+        if (text == null || text.isBlank()) {
+            return List.of();
+        }
+        return studentDao.search(text.trim());
     }
 
     public List<Student> getStudentsByGrade(int gradeId, int year) {
+        if (gradeId <= 0) {
+            throw new BusinessException("El ID de grado debe ser mayor que cero.");
+        }
+        if (year <= 0) {
+            throw new BusinessException("El año académico debe ser mayor que cero.");
+        }
+        if (gradeLevelDao.findById(gradeId).isEmpty()) {
+            throw new BusinessException("El grado seleccionado no existe.");
+        }
         return studentDao.findByGrade(gradeId, year);
     }
 
@@ -168,6 +174,10 @@ public class StudentService {
 
     public void changeStudentStatus(int studentId, String targetStatus) {
         Student student = getStudent(studentId);
+        if (targetStatus != null && targetStatus.equalsIgnoreCase(student.status())) {
+            throw new BusinessException("El estudiante ya se encuentra en estado " + targetStatus + ".");
+        }
+
         int academicYear = AppConfig.getInstance().getAcademicYear();
         Optional<Enrollment> currentEnrollment = enrollmentDao.findByStudentAndYear(studentId, academicYear);
 
@@ -181,7 +191,7 @@ public class StudentService {
         StudentRules.validateStatusTransition(student.status(), targetStatus, numericLevel);
 
         if ("Graduado".equalsIgnoreCase(targetStatus)) {
-            if (currentEnrollment.isEmpty()) {
+            if (currentEnrollment.isEmpty() || !"Activa".equalsIgnoreCase(currentEnrollment.get().status())) {
                 throw new BusinessException("El estudiante no cuenta con matrícula activa para ser graduado.");
             }
             studentDao.updateStatus(studentId, "Graduado");
@@ -217,6 +227,9 @@ public class StudentService {
         Optional<Enrollment> existing = enrollmentDao.findByStudentAndYear(studentId, year);
         if (existing.isPresent()) {
             enrollmentDao.updateGrade(existing.get().id(), gradeId);
+            if (!"Activa".equals(existing.get().status())) {
+                enrollmentDao.updateStatus(existing.get().id(), "Activa", null);
+            }
             return existing.get().id();
         } else {
             Enrollment newEnrollment = new Enrollment(
@@ -239,13 +252,25 @@ public class StudentService {
     }
 
     public Optional<Guardian> findGuardianByDocument(String documentNumber) {
-        return guardianDao.findByDocument(documentNumber);
+        if (documentNumber == null || documentNumber.isBlank()) {
+            return Optional.empty();
+        }
+        return guardianDao.findByDocument(documentNumber.trim());
     }
 
     public int saveGuardian(Guardian guardian) {
+        validateGuardianData(guardian);
+
         if (guardian.id() <= 0) {
+            if (guardianDao.findByDocument(guardian.documentNumber()).isPresent()) {
+                throw new BusinessException("Ya existe un acudiente con ese número de documento.");
+            }
             return guardianDao.insert(guardian);
         } else {
+            Optional<Guardian> existing = guardianDao.findByDocument(guardian.documentNumber());
+            if (existing.isPresent() && existing.get().id() != guardian.id()) {
+                throw new BusinessException("Ya existe un acudiente con ese número de documento.");
+            }
             guardianDao.update(guardian);
             return guardian.id();
         }
@@ -255,8 +280,14 @@ public class StudentService {
         getStudent(studentId);
         guardianDao.findById(guardianId)
                 .orElseThrow(() -> new BusinessException("El acudiente no existe."));
-        guardianDao.link(studentId, guardianId, primary, emergencyContact);
-        if (primary) {
+        List<GuardianLink> current = guardianDao.findByStudent(studentId);
+        boolean alreadyLinked = current.stream().anyMatch(l -> l.guardian().id() == guardianId);
+        if (alreadyLinked) {
+            throw new BusinessException("El acudiente ya está vinculado al estudiante.");
+        }
+        boolean makePrimary = primary || current.isEmpty();
+        guardianDao.link(studentId, guardianId, makePrimary, emergencyContact);
+        if (makePrimary) {
             guardianDao.setPrimary(studentId, guardianId);
         }
     }
@@ -305,7 +336,11 @@ public class StudentService {
         }
 
         List<SubjectEnrollment> toEnroll = new ArrayList<>();
+        Set<Integer> uniqueSubjectIds = new LinkedHashSet<>();
         for (int subjectId : subjectIds) {
+            if (!uniqueSubjectIds.add(subjectId)) {
+                throw new BusinessException("No se puede inscribir la misma materia más de una vez en la solicitud.");
+            }
             Subject subject = subjectDao.findById(subjectId)
                     .orElseThrow(() -> new BusinessException("La materia no existe."));
             if (!subject.active()) {
@@ -333,10 +368,65 @@ public class StudentService {
     }
 
     public List<Subject> getSubjectsForGrade(int gradeId) {
+        if (gradeId <= 0) {
+            return List.of();
+        }
         return subjectDao.findByGrade(gradeId);
     }
 
     public List<SubjectEnrollment> getSubjectEnrollments(int studentId, int year, String period) {
+        if (studentId <= 0 || year <= 0) {
+            return List.of();
+        }
         return subjectEnrollmentDao.findByStudent(studentId, year, period);
+    }
+
+    private void validateStudentData(Student student) {
+        if (student == null) {
+            throw new BusinessException("Los datos del estudiante son obligatorios.");
+        }
+        if (!InputValidator.isNotBlank(student.firstName())) {
+            throw new BusinessException("El primer nombre del estudiante es obligatorio.");
+        }
+        if (!InputValidator.isNotBlank(student.lastName())) {
+            throw new BusinessException("El primer apellido del estudiante es obligatorio.");
+        }
+        if (!InputValidator.isValidDocument(student.documentNumber())) {
+            throw new BusinessException("El documento del estudiante no es válido.");
+        }
+        StudentRules.validateBirthDate(student.birthDate());
+        if (student.phone() != null && !student.phone().isBlank() && !InputValidator.isValidPhone(student.phone())) {
+            throw new BusinessException("El formato del teléfono del estudiante no es válido.");
+        }
+        if (student.email() != null && !student.email().isBlank() && !InputValidator.isValidEmail(student.email())) {
+            throw new BusinessException("El formato del correo electrónico del estudiante no es válido.");
+        }
+    }
+
+    private void validateGuardianData(Guardian g) {
+        if (g == null) {
+            throw new BusinessException("Los datos del acudiente son obligatorios.");
+        }
+        if (!InputValidator.isNotBlank(g.firstName())) {
+            throw new BusinessException("El nombre del acudiente es obligatorio.");
+        }
+        if (!InputValidator.isNotBlank(g.lastName())) {
+            throw new BusinessException("El apellido del acudiente es obligatorio.");
+        }
+        if (!InputValidator.isValidDocument(g.documentNumber())) {
+            throw new BusinessException("El documento del acudiente no es válido.");
+        }
+        if (!InputValidator.isNotBlank(g.phone())) {
+            throw new BusinessException("El teléfono principal del acudiente es obligatorio.");
+        }
+        if (!InputValidator.isValidPhone(g.phone())) {
+            throw new BusinessException("El formato del teléfono principal del acudiente no es válido.");
+        }
+        if (g.secondaryPhone() != null && !g.secondaryPhone().isBlank() && !InputValidator.isValidPhone(g.secondaryPhone())) {
+            throw new BusinessException("El formato del teléfono secundario del acudiente no es válido.");
+        }
+        if (g.email() != null && !g.email().isBlank() && !InputValidator.isValidEmail(g.email())) {
+            throw new BusinessException("El formato del correo electrónico del acudiente no es válido.");
+        }
     }
 }
