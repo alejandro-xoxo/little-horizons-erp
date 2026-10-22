@@ -21,6 +21,12 @@ Objetivo: factura PDF al confirmar un pago y aplicación completa funcionando de
 - [ ] `MainController` y `MainMenuView`: menú principal con los 7 módulos y salir, como en el ejemplo del enunciado.
 - [ ] Consola UTF-8 en Windows (`chcp 65001`) para ver los marcos Unicode.
 - [ ] Revisar de punta a punta mensajes, validaciones y navegación de los módulos de B (revisión cruzada).
+- [ ] Mientras B termina la factura: dejar el menú con stubs de los módulos de B y cablearlos a medida que lleguen sus PRs.
+- [ ] Escribir las secciones del README que son de A (6.1 cambios al DDL, 8 estructura, 9 patrones, 11 errores y logs) en `docs/readme-a.md` y pasárselas a B.
+
+## Revisión cruzada de B sobre A
+
+- [ ] B revisa los módulos de A (Estudiantes, Académico, Profesores): validaciones, mensajes, navegación y reglas de negocio. Los hallazgos se abren como issues para A.
 
 ## Criterio de salida
 

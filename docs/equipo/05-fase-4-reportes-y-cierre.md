@@ -13,19 +13,21 @@ Objetivo: módulo 7 completo, sistema probado entre los dos y entrega lista.
 - [ ] Participación en clubes y eventos.
 - [ ] Ingresos por concepto y por mes.
 - [ ] Estado de los recursos y préstamos vencidos.
-- [ ] README completo: título, descripción, autores, tecnologías, requisitos, configuración de BD, instalación y ejecución, estructura, patrones, funcionalidades, errores y logs, limitaciones, licencia.
+- [ ] Los reportes solo leen tablas de A (ver "Tablas de A que B solo lee" en las reglas): `ReportService` depende únicamente de `ReportDao`, no de clases Java de A.
+- [ ] Ensamblar el README completo con las secciones que pasa A en `docs/readme-a.md`: título, descripción, autores, tecnologías, requisitos, configuración de BD, instalación y ejecución, estructura, patrones, funcionalidades, errores y logs, limitaciones, licencia.
 
 ## Dev A: calidad y cierre
 
 - [ ] Conectar el módulo 7 en el menú principal (cuando B lo entregue).
 - [ ] Verificar manejo de errores: `BaseController.safely` captura todo, `logs/error_log.txt` guarda fecha, contexto y stacktrace.
 - [ ] Revisar que no exista SQL concatenado ni credenciales en el código.
-- [ ] Revisar `.gitignore` y que `main` compile desde cero: `mvn clean package`.
+- [ ] Generar `docs/database.sql` unificado concatenando `docs/sql/01-schema.sql`, `02-extras-b.sql` y `03-data.sql`, y probarlo sobre una base limpia.
+- [ ] Que `main` compile desde cero: `mvn clean package`.
 
 ## Juntos
 
 - [ ] Pruebas cruzadas: cada dev prueba el módulo del otro con la lista de abajo.
-- [ ] Corregir hallazgos por issue y PR.
+- [ ] Corregir hallazgos por issue y PR: los corrige el dueño del módulo; el otro dev verifica la corrección.
 - [ ] Etiqueta final: `git tag v1.0.0` en `main`.
 
 ## Lista de pruebas cruzadas

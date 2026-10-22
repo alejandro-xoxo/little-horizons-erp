@@ -50,8 +50,12 @@ Recursos (`ResourceService`, `ResourceController`, `ResourceView`):
 - Los servicios reciben los DAOs por constructor (para poder probarlos).
 - B usa `StudentDao`, `GuardianDao` y `TeacherDao` solo por interfaz.
 - Cada controlador se puede probar con un `main` temporal propio; el cableado definitivo en `Main` lo hace A en la Fase 3.
+- Para no esperar al otro, se prueba con mocks de la interfaz DAO (los servicios reciben el DAO por constructor).
+- **Constructores públicos para el cableado:** cada dev anota en la descripción de su PR el constructor exacto de sus `XxxService`, `XxxView` y `XxxController` (por ejemplo `new FinanceController(new FinanceView(scanner), new FinanceService())`). A solo copia esas líneas en `Main`.
+- Dependencias entre módulos: `TeacherService` (A) debe estar en `develop` antes de que B termine la asignación de profesor a club y a préstamo. Si no está, B usa `TeacherDao` por interfaz.
 
 ## Criterio de salida
 
 - Cada módulo cumple el punto 5.2 del enunciado: validación con reintento, mensajes de éxito o error, volver al menú.
-- PRs aprobados por el otro dev y mezclados en `main`.
+- PRs aprobados por el otro dev y mezclados en `develop`.
+- Constructores públicos anotados en los PRs.
