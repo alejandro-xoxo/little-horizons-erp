@@ -80,3 +80,115 @@ INSERT INTO prestamos_profesor (id_recurso, id_profesor, fecha_prestamo, fecha_d
 ((SELECT id_recurso FROM recursos WHERE codigo_recurso = 'LIB-007'), 1, DATE_SUB(CURDATE(), INTERVAL 35 DAY), DATE_SUB(CURDATE(), INTERVAL 28 DAY), DATE_SUB(CURDATE(), INTERVAL 30 DAY), 'Devuelto', NULL),
 ((SELECT id_recurso FROM recursos WHERE codigo_recurso = 'LAB-003'), 4, DATE_SUB(CURDATE(), INTERVAL 22 DAY), DATE_SUB(CURDATE(), INTERVAL 15 DAY), DATE_SUB(CURDATE(), INTERVAL 15 DAY), 'Devuelto', NULL),
 ((SELECT id_recurso FROM recursos WHERE codigo_recurso = 'DID-002'), 9, DATE_SUB(CURDATE(), INTERVAL 16 DAY), DATE_SUB(CURDATE(), INTERVAL 9 DAY),  DATE_SUB(CURDATE(), INTERVAL 10 DAY), 'Devuelto', NULL);
+
+-- ============================================
+-- PASO 2: EXTRACURRICULARES (módulo 4)
+-- Los ids de clubes y eventos se calculan desde LAST_INSERT_ID() (insertados en una sola sentencia).
+-- El club Ajedrez (cupo 5) queda lleno a propósito para probar el rechazo de inscripciones.
+-- ============================================
+
+INSERT INTO clubes (nombre_club, descripcion, id_profesor_supervisor, capacidad_maxima, horario_reunion, esta_activo) VALUES
+('Ajedrez',   'Estrategia y torneos internos de ajedrez',         1, 5,  'Lunes 3-4 PM',     TRUE),
+('Robótica',  'Diseño y programación de robots',                  2, 15, 'Martes 3-5 PM',    TRUE),
+('Teatro',    'Montaje de obras y expresión corporal',            3, 25, 'Miércoles 3-5 PM', TRUE),
+('Fútbol',    'Entrenamiento y torneos interclases',              4, 30, 'Jueves 3-5 PM',    TRUE),
+('Música',    'Coro e instrumentos',                              5, 20, 'Viernes 2-4 PM',   TRUE),
+('Debate',    'Oratoria y debate argumentado',                    6, 12, 'Lunes 4-5 PM',     TRUE),
+('Ciencias',  'Experimentos y proyectos científicos',             7, 20, 'Martes 2-4 PM',    TRUE),
+('Arte',      'Pintura, dibujo y manualidades',                   8, 20, 'Jueves 2-4 PM',    TRUE);
+SET @club0 = LAST_INSERT_ID();
+
+-- Offsets: 0 Ajedrez, 1 Robótica, 2 Teatro, 3 Fútbol, 4 Música, 5 Debate, 6 Ciencias, 7 Arte
+INSERT INTO membresias_club (id_estudiante, id_club, fecha_ingreso, estado_membresia, fecha_retiro, motivo_retiro) VALUES
+(1,  @club0 + 0, DATE_SUB(CURDATE(), INTERVAL 200 DAY), 'Activa', NULL, NULL),
+(2,  @club0 + 0, DATE_SUB(CURDATE(), INTERVAL 190 DAY), 'Activa', NULL, NULL),
+(3,  @club0 + 0, DATE_SUB(CURDATE(), INTERVAL 180 DAY), 'Activa', NULL, NULL),
+(4,  @club0 + 0, DATE_SUB(CURDATE(), INTERVAL 170 DAY), 'Activa', NULL, NULL),
+(5,  @club0 + 0, DATE_SUB(CURDATE(), INTERVAL 160 DAY), 'Activa', NULL, NULL),
+(6,  @club0 + 0, DATE_SUB(CURDATE(), INTERVAL 150 DAY), 'Retirada', DATE_SUB(CURDATE(), INTERVAL 60 DAY), 'Cambio de horario con otra actividad'),
+(6,  @club0 + 1, DATE_SUB(CURDATE(), INTERVAL 140 DAY), 'Activa', NULL, NULL),
+(7,  @club0 + 1, DATE_SUB(CURDATE(), INTERVAL 140 DAY), 'Activa', NULL, NULL),
+(8,  @club0 + 1, DATE_SUB(CURDATE(), INTERVAL 135 DAY), 'Activa', NULL, NULL),
+(9,  @club0 + 1, DATE_SUB(CURDATE(), INTERVAL 130 DAY), 'Activa', NULL, NULL),
+(10, @club0 + 1, DATE_SUB(CURDATE(), INTERVAL 125 DAY), 'Activa', NULL, NULL),
+(11, @club0 + 1, DATE_SUB(CURDATE(), INTERVAL 120 DAY), 'Activa', NULL, NULL),
+(12, @club0 + 1, DATE_SUB(CURDATE(), INTERVAL 110 DAY), 'Activa', NULL, NULL),
+(13, @club0 + 2, DATE_SUB(CURDATE(), INTERVAL 150 DAY), 'Activa', NULL, NULL),
+(14, @club0 + 2, DATE_SUB(CURDATE(), INTERVAL 150 DAY), 'Activa', NULL, NULL),
+(15, @club0 + 2, DATE_SUB(CURDATE(), INTERVAL 145 DAY), 'Activa', NULL, NULL),
+(16, @club0 + 2, DATE_SUB(CURDATE(), INTERVAL 140 DAY), 'Activa', NULL, NULL),
+(17, @club0 + 2, DATE_SUB(CURDATE(), INTERVAL 135 DAY), 'Activa', NULL, NULL),
+(18, @club0 + 2, DATE_SUB(CURDATE(), INTERVAL 130 DAY), 'Activa', NULL, NULL),
+(19, @club0 + 2, DATE_SUB(CURDATE(), INTERVAL 120 DAY), 'Retirada', DATE_SUB(CURDATE(), INTERVAL 30 DAY), 'Prefiere dedicarse a otro club'),
+(20, @club0 + 3, DATE_SUB(CURDATE(), INTERVAL 180 DAY), 'Activa', NULL, NULL),
+(21, @club0 + 3, DATE_SUB(CURDATE(), INTERVAL 180 DAY), 'Activa', NULL, NULL),
+(22, @club0 + 3, DATE_SUB(CURDATE(), INTERVAL 175 DAY), 'Activa', NULL, NULL),
+(23, @club0 + 3, DATE_SUB(CURDATE(), INTERVAL 170 DAY), 'Activa', NULL, NULL),
+(24, @club0 + 3, DATE_SUB(CURDATE(), INTERVAL 165 DAY), 'Activa', NULL, NULL),
+(25, @club0 + 3, DATE_SUB(CURDATE(), INTERVAL 160 DAY), 'Activa', NULL, NULL),
+(26, @club0 + 3, DATE_SUB(CURDATE(), INTERVAL 155 DAY), 'Activa', NULL, NULL),
+(27, @club0 + 3, DATE_SUB(CURDATE(), INTERVAL 150 DAY), 'Activa', NULL, NULL),
+(28, @club0 + 3, DATE_SUB(CURDATE(), INTERVAL 145 DAY), 'Activa', NULL, NULL),
+(29, @club0 + 3, DATE_SUB(CURDATE(), INTERVAL 140 DAY), 'Activa', NULL, NULL),
+(30, @club0 + 4, DATE_SUB(CURDATE(), INTERVAL 160 DAY), 'Activa', NULL, NULL),
+(31, @club0 + 4, DATE_SUB(CURDATE(), INTERVAL 160 DAY), 'Activa', NULL, NULL),
+(32, @club0 + 4, DATE_SUB(CURDATE(), INTERVAL 155 DAY), 'Activa', NULL, NULL),
+(33, @club0 + 4, DATE_SUB(CURDATE(), INTERVAL 150 DAY), 'Activa', NULL, NULL),
+(34, @club0 + 4, DATE_SUB(CURDATE(), INTERVAL 145 DAY), 'Activa', NULL, NULL),
+(35, @club0 + 4, DATE_SUB(CURDATE(), INTERVAL 140 DAY), 'Activa', NULL, NULL),
+(1,  @club0 + 4, DATE_SUB(CURDATE(), INTERVAL 100 DAY), 'Activa', NULL, NULL),
+(36, @club0 + 5, DATE_SUB(CURDATE(), INTERVAL 130 DAY), 'Activa', NULL, NULL),
+(37, @club0 + 5, DATE_SUB(CURDATE(), INTERVAL 130 DAY), 'Activa', NULL, NULL),
+(38, @club0 + 5, DATE_SUB(CURDATE(), INTERVAL 125 DAY), 'Activa', NULL, NULL),
+(39, @club0 + 5, DATE_SUB(CURDATE(), INTERVAL 120 DAY), 'Activa', NULL, NULL),
+(2,  @club0 + 5, DATE_SUB(CURDATE(), INTERVAL 90 DAY),  'Activa', NULL, NULL),
+(40, @club0 + 6, DATE_SUB(CURDATE(), INTERVAL 120 DAY), 'Activa', NULL, NULL),
+(41, @club0 + 6, DATE_SUB(CURDATE(), INTERVAL 120 DAY), 'Activa', NULL, NULL),
+(42, @club0 + 6, DATE_SUB(CURDATE(), INTERVAL 115 DAY), 'Activa', NULL, NULL),
+(43, @club0 + 6, DATE_SUB(CURDATE(), INTERVAL 110 DAY), 'Activa', NULL, NULL),
+(6,  @club0 + 6, DATE_SUB(CURDATE(), INTERVAL 55 DAY),  'Activa', NULL, NULL),
+(44, @club0 + 7, DATE_SUB(CURDATE(), INTERVAL 110 DAY), 'Activa', NULL, NULL),
+(45, @club0 + 7, DATE_SUB(CURDATE(), INTERVAL 105 DAY), 'Activa', NULL, NULL),
+(46, @club0 + 7, DATE_SUB(CURDATE(), INTERVAL 100 DAY), 'Activa', NULL, NULL),
+(47, @club0 + 7, DATE_SUB(CURDATE(), INTERVAL 95 DAY),  'Activa', NULL, NULL),
+(48, @club0 + 7, DATE_SUB(CURDATE(), INTERVAL 90 DAY),  'Activa', NULL, NULL),
+(20, @club0 + 7, DATE_SUB(CURDATE(), INTERVAL 80 DAY),  'Retirada', DATE_SUB(CURDATE(), INTERVAL 20 DAY), 'Falta de tiempo');
+
+INSERT INTO eventos (nombre_evento, descripcion, tipo_evento, fecha_evento, lugar, tiene_competencia, id_organizador, esta_activo) VALUES
+('Olimpiadas de Matemáticas', 'Competencia interna de razonamiento matemático', 'Académico', DATE_SUB(CURDATE(), INTERVAL 120 DAY), 'Auditorio',        TRUE,  1, TRUE),
+('Feria de Ciencias',         'Exposición de proyectos científicos',            'Científico', DATE_SUB(CURDATE(), INTERVAL 90 DAY),  'Laboratorio 1',    TRUE,  7, TRUE),
+('Festival de Talentos',      'Presentaciones de música, danza y teatro',        'Cultural',   DATE_SUB(CURDATE(), INTERVAL 60 DAY),  'Auditorio',        TRUE,  3, TRUE),
+('Torneo Interclases de Fútbol', 'Torneo entre cursos de secundaria',            'Deportivo',  DATE_SUB(CURDATE(), INTERVAL 30 DAY),  'Cancha principal', TRUE,  4, TRUE),
+('Día de la Familia',         'Jornada de integración con las familias',         'Social',     DATE_SUB(CURDATE(), INTERVAL 10 DAY),  'Patio central',    FALSE, 5, TRUE),
+('Muestra de Arte',           'Exposición de trabajos de arte del colegio',      'Cultural',   DATE_ADD(CURDATE(), INTERVAL 20 DAY),  'Biblioteca',       FALSE, 8, TRUE);
+SET @event0 = LAST_INSERT_ID();
+
+-- Eventos con competencia: rol Competidor y posición. Sin competencia: rol Participante o Asistente, sin posición.
+INSERT INTO participantes_evento (id_evento, id_estudiante, rol_participacion, posicion_obtenida) VALUES
+(@event0 + 0, 40, 'Competidor', '1er Lugar'),
+(@event0 + 0, 41, 'Competidor', '2do Lugar'),
+(@event0 + 0, 36, 'Competidor', '3er Lugar'),
+(@event0 + 0, 10, 'Competidor', 'Participante'),
+(@event0 + 0, 25, 'Competidor', 'Participante'),
+(@event0 + 1, 42, 'Competidor', '1er Lugar'),
+(@event0 + 1, 43, 'Competidor', '2do Lugar'),
+(@event0 + 1, 7,  'Competidor', '3er Lugar'),
+(@event0 + 1, 8,  'Competidor', 'Participante'),
+(@event0 + 2, 13, 'Competidor', '1er Lugar'),
+(@event0 + 2, 30, 'Competidor', '2do Lugar'),
+(@event0 + 2, 14, 'Competidor', '3er Lugar'),
+(@event0 + 2, 31, 'Competidor', 'Participante'),
+(@event0 + 2, 15, 'Competidor', 'Participante'),
+(@event0 + 3, 20, 'Competidor', '1er Lugar'),
+(@event0 + 3, 21, 'Competidor', '2do Lugar'),
+(@event0 + 3, 22, 'Competidor', '3er Lugar'),
+(@event0 + 3, 23, 'Competidor', 'Participante'),
+(@event0 + 3, 24, 'Competidor', 'Participante'),
+(@event0 + 4, 1,  'Participante', NULL),
+(@event0 + 4, 2,  'Participante', NULL),
+(@event0 + 4, 3,  'Asistente', NULL),
+(@event0 + 4, 26, 'Asistente', NULL),
+(@event0 + 4, 44, 'Participante', NULL),
+(@event0 + 5, 44, 'Participante', NULL),
+(@event0 + 5, 45, 'Participante', NULL),
+(@event0 + 5, 46, 'Participante', NULL);
