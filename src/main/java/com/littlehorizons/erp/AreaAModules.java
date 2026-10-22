@@ -1,7 +1,17 @@
 package com.littlehorizons.erp;
 
 import com.littlehorizons.erp.controller.MenuModule;
+import com.littlehorizons.erp.controller.AcademicController;
 import com.littlehorizons.erp.controller.StudentController;
+import com.littlehorizons.erp.dao.AcademicRecordDaoImpl;
+import com.littlehorizons.erp.dao.AttendanceDaoImpl;
+import com.littlehorizons.erp.service.AcademicService;
+import com.littlehorizons.erp.view.AcademicView;
+import com.littlehorizons.erp.controller.TeacherController;
+import com.littlehorizons.erp.dao.AssignmentDaoImpl;
+import com.littlehorizons.erp.dao.TeacherDaoImpl;
+import com.littlehorizons.erp.service.TeacherService;
+import com.littlehorizons.erp.view.TeacherView;
 import com.littlehorizons.erp.dao.EnrollmentDaoImpl;
 import com.littlehorizons.erp.dao.GradeLevelDaoImpl;
 import com.littlehorizons.erp.dao.GuardianDaoImpl;
@@ -29,9 +39,12 @@ public final class AreaAModules {
         return List.of(
                 new StudentController(new StudentView(scanner), new StudentService(new StudentDaoImpl(),
                         new GuardianDaoImpl(), new EnrollmentDaoImpl(), new GradeLevelDaoImpl(),
-                        new StudentRegistrationDaoImpl(), new SubjectDaoImpl(), new SubjectEnrollmentDaoImpl()))
-                // posición 2: Académica
-                // posición 3: Profesores
+                        new StudentRegistrationDaoImpl(), new SubjectDaoImpl(), new SubjectEnrollmentDaoImpl())),
+                new AcademicController(new AcademicView(scanner), new AcademicService(new AcademicRecordDaoImpl(),
+                        new AttendanceDaoImpl(), new StudentDaoImpl(), new SubjectDaoImpl(),
+                        new SubjectEnrollmentDaoImpl(), new AssignmentDaoImpl())),
+                new TeacherController(new TeacherView(scanner), new TeacherService(new TeacherDaoImpl(),
+                        new AssignmentDaoImpl(), new SubjectDaoImpl()))
         );
     }
 }
