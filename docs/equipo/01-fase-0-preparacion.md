@@ -2,11 +2,31 @@
 
 Objetivo: que ambos puedan trabajar en paralelo sin bloquearse.
 
+## Ramas y qué debe tener cada dev
+
+| | **Dev A** | **Dev B** |
+|---|---|---|
+| **Rama de trabajo** | `dev-a` | `dev-b` |
+| **Entrega a** | PR `dev-a` -> `develop` | PR `dev-b` -> `develop` |
+| **Primer comando** | `git clone https://github.com/alejandro-xoxo/little-horizons-erp.git` y `git checkout dev-a` | `git clone https://github.com/alejandro-xoxo/little-horizons-erp.git` y `git checkout dev-b` |
+
+Ramas de apoyo (nadie escribe directo): `develop` (integración) y `main` (estable). Detalle en [00-reglas-del-equipo.md](00-reglas-del-equipo.md).
+
+Cada dev debe tener antes de empezar:
+- [ ] Cuenta de GitHub con acceso de escritura al repo (colaborador).
+- [ ] Git con `user.name` y `user.email` configurados.
+- [ ] JDK 17 o superior (`java -version`).
+- [ ] Maven 3.9+ (`mvn -v`) o el Maven de NetBeans.
+- [ ] MySQL Server 8.0.16 o superior (`mysql --version`) y un cliente (DBeaver o Workbench).
+- [ ] IDE: Apache NetBeans, IntelliJ o VS Code con soporte Maven.
+- [ ] Terminal UTF-8 (Windows: `chcp 65001`).
+- [ ] Variable de entorno `LH_DB_PASSWORD` con su contraseña local de MySQL.
+- [ ] Haber leído las reglas del equipo y el enunciado del proyecto.
+
 ## Tareas conjuntas
 
-- [ ] Crear el repo remoto vacío (GitHub) y conectar: `git remote add origin <url>`; `git push -u origin main`.
-- [ ] Cada dev clona el repo y crea su rama: `dev-a` o `dev-b`.
-- [ ] Instalar JDK 17, Maven 3.9+ y MySQL 8.0.16 o superior. Verificar: `java -version`, `mvn -v`, `mysql --version`.
+- [ ] Cada dev clona el repo y cambia a su rama (`dev-a` o `dev-b`).
+- [ ] Confirmar que `main`, `develop`, `dev-a` y `dev-b` existen en GitHub.
 - [ ] Leer [00-reglas-del-equipo.md](00-reglas-del-equipo.md).
 - [ ] Acordar las firmas de las interfaces que B usará de A (ver tabla).
 

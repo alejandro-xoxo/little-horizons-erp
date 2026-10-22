@@ -1,5 +1,8 @@
 # Fase 4: Reportes, pruebas cruzadas y cierre
 
+> **Ramas:** Dev A trabaja en `dev-a`, Dev B en `dev-b`. Cada uno entrega con PR a `develop`. Al cerrar la fase, PR `develop` -> `main`.
+> **Antes de empezar:** `git checkout dev-x` y `git pull --rebase origin develop`.
+
 Objetivo: módulo 7 completo, sistema probado entre los dos y entrega lista.
 
 ## Dev B: reportes (módulo 7)

@@ -1,5 +1,8 @@
 # Fase 1: Base, modelos y DAOs (en paralelo)
 
+> **Ramas:** Dev A trabaja en `dev-a`, Dev B en `dev-b`. Cada uno entrega con PR a `develop`. Al cerrar la fase, PR `develop` -> `main`.
+> **Antes de empezar:** `git checkout dev-x` y `git pull --rebase origin develop`.
+
 Objetivo: infraestructura lista y toda la capa de datos escrita.
 
 ## Orden dentro de la fase

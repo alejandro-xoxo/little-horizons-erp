@@ -1,5 +1,8 @@
 # Fase 3: Factura electrónica e integración
 
+> **Ramas:** Dev A trabaja en `dev-a`, Dev B en `dev-b`. Cada uno entrega con PR a `develop`. Al cerrar la fase, PR `develop` -> `main`.
+> **Antes de empezar:** `git checkout dev-x` y `git pull --rebase origin develop`.
+
 Objetivo: factura PDF al confirmar un pago y aplicación completa funcionando desde el menú principal.
 
 ## Dev B: factura (módulo 3.3)

@@ -24,10 +24,20 @@ Regla: nadie edita un archivo ajeno. Si necesita un cambio, abre un issue o pide
 
 ## Flujo de git
 
-- Ramas fijas: `main` (siempre compila), `dev-a`, `dev-b`.
-- Cada tarea: rama `feat/<modulo>-<tarea>` desde `main`, PR a `main`.
-- Antes del PR: `git pull --rebase origin main` y `mvn clean compile` sin errores.
-- Otro dev revisa y aprueba cada PR. Merge con "squash".
+| Rama | Para qué | Quién escribe |
+|---|---|---|
+| `main` | Versiones estables y entregables. Siempre compila. | Nadie directo. Solo recibe PR desde `develop` al cerrar cada fase |
+| `develop` | Integración: aquí se juntan el trabajo de A y de B | Nadie directo. Solo recibe PR desde `dev-a` y `dev-b` |
+| `dev-a` | Rama de trabajo de **Dev A** | Solo Dev A |
+| `dev-b` | Rama de trabajo de **Dev B** | Solo Dev B |
+
+- Cada dev trabaja solo en su rama (`dev-a` o `dev-b`). Si quiere aislar una tarea grande, crea `feat/<modulo>-<tarea>` desde su rama y la mezcla de vuelta en ella.
+- Para empezar el día: `git checkout dev-x`, luego `git pull --rebase origin develop` (trae lo del otro).
+- Para entregar: `git push origin dev-x` y abrir PR `dev-x` -> `develop`.
+- Antes del PR: `mvn clean compile` sin errores.
+- El otro dev revisa y aprueba cada PR a `develop`. Merge con "squash".
+- Al cerrar una fase, PR `develop` -> `main` (lo abre Dev A, lo aprueba Dev B).
+- Nadie hace `push --force` sobre `main` ni `develop`.
 - Commits en español, formato `tipo(modulo): descripcion` (ej. `feat(club): valida cupo maximo`).
 - Nunca se sube `config.properties` con contraseña. La clave va en la variable de entorno `LH_DB_PASSWORD`.
 

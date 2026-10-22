@@ -1,5 +1,8 @@
 # Fase 2: Servicios, controladores y vistas (en paralelo)
 
+> **Ramas:** Dev A trabaja en `dev-a`, Dev B en `dev-b`. Cada uno entrega con PR a `develop`. Al cerrar la fase, PR `develop` -> `main`.
+> **Antes de empezar:** `git checkout dev-x` y `git pull --rebase origin develop`.
+
 Objetivo: cada módulo funcional de punta a punta (vista -> controlador -> servicio -> DAO) y probable de forma aislada.
 
 ## Dev A: módulos 1, 2 y 3
