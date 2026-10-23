@@ -107,3 +107,23 @@ Las reglas de negocio violadas se muestran al usuario. Los errores de base de da
 ## Licencia
 
 MIT. Ver [`LICENSE`](LICENSE).
+
+## Ejecutar en IntelliJ IDEA (JetBrains)
+
+Para abrir, compilar y ejecutar el proyecto en IntelliJ IDEA (Community o Ultimate) en Windows sin pasos ocultos:
+
+1. **Abrir el proyecto:** Seleccionar **File > Open**, navegar a la carpeta del repositorio y elegir el archivo `pom.xml` (abrir como proyecto Maven).
+2. **Configurar el SDK (JDK 17+):** En **File > Project Structure > Project**, verificar que el SDK configurado sea Java 17 o superior (el archivo `pom.xml` define `<maven.compiler.release>17</maven.compiler.release>`).
+3. **Importar dependencias Maven:** Esperar a que IntelliJ finalice la sincronización e importación del proyecto Maven (ventana de herramientas Maven o barra de progreso).
+4. **Definir contraseña de base de datos (`LH_DB_PASSWORD`):**
+   - Como variable de entorno del sistema (`LH_DB_PASSWORD`), o
+   - En la configuración de ejecución del IDE: ir a **Run > Edit Configurations**, seleccionar **Little Horizons ERP**, y en **Environment variables** definir `LH_DB_PASSWORD=tu_contraseña` (la configuración compartida en `.run/Little Horizons ERP.run.xml` se distribuye con `envs` vacío por seguridad para no almacenar contraseñas en el repositorio).
+5. **Configuración local de MySQL (`config.properties`):** Si el usuario o la URL de MySQL difieren de los valores por defecto (`root` en `localhost:3306`), copiar `src/main/resources/config.properties` a la raíz del proyecto y ajustar `db.url` o `db.user`. El archivo en la raíz está ignorado por Git y tiene prioridad sobre el classpath.
+6. **Cargar la base de datos:** Cargar el script SQL consolidado `docs/database.sql` en MySQL 8 (por ejemplo: `mysql -u root -p < docs/database.sql`).
+7. **Ejecutar la aplicación:** Seleccionar la configuración de ejecución compartida **«Little Horizons ERP»** en la barra superior y hacer clic en **Run** (o `Shift+F10`). Usar la ventana interactiva **Run** de IntelliJ para operar el sistema (la consola de IntelliJ gestiona la entrada interactiva por teclado directamente). También se incluyen las configuraciones Maven compartidas **«Compilar y probar»** (`clean test`) y **«Empaquetar jar»** (`clean package`).
+8. **Codificación UTF-8:** En **Settings > Editor > File Encodings**, verificar que *Global Encoding*, *Project Encoding* y *Default encoding for properties files* estén configurados en `UTF-8`. La configuración compartida ya incorpora las VM options (`-Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8 -Dsun.stdout.encoding=UTF-8`), lo que asegura que los marcos de tabla y acentos se rendericen correctamente en la consola del IDE.
+9. **Problemas típicos:**
+   - *Access denied for user...*: Falta configurar la variable de entorno `LH_DB_PASSWORD` en el sistema o en Edit Configurations.
+   - *Communications link failure*: El servidor MySQL se encuentra apagado o no es accesible en el puerto configurado.
+   - *Caracteres raros o marcos rotos*: Verificar que las VM options de codificación UTF-8 estén presentes en la configuración de ejecución.
+10. **Consola interactiva vs IDE:** La clase `Main` únicamente cambia la página de códigos de Windows (`chcp 65001`) si detecta una consola de terminal interactiva real (`System.console() != null`). Al correr dentro del IDE IntelliJ IDEA, `System.console()` retorna `null`, por lo que dicha invocación se omite automáticamente y no interfiere con el entorno de ejecución del IDE.
