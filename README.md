@@ -54,7 +54,7 @@ Paquete base `com.littlehorizons.erp`, organizado por capas:
 | Paquete | Contenido |
 |---|---|
 | `config` | `AppConfig` y `DatabaseConnection` (núcleo) |
-| `model` | Registros e enumeraciones del dominio |
+| `model` | Registros y enumeraciones del dominio |
 | `dao` | Interfaz y `...DaoImpl` por entidad; todo el SQL vive aquí |
 | `service` | Reglas de negocio |
 | `controller` | Controladores de menú; cada uno es un `MenuModule` con su posición |
